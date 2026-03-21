@@ -207,6 +207,117 @@
   .empty-state p { font-size: 18px; margin-bottom: 16px; }
   .updated { font-size: 12px; color: #555; text-align: center; padding: 8px; }
 
+  /* View toggle */
+  .view-toggle {
+    display: flex;
+    gap: 4px;
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 3px;
+    margin-left: 8px;
+  }
+  .view-toggle-btn {
+    background: none;
+    border: none;
+    color: #666;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+    line-height: 1;
+  }
+  .view-toggle-btn.active { background: #e94560; color: #fff; }
+  .view-toggle-btn:hover:not(.active) { color: #ccc; }
+
+  /* Grid view */
+  .grid-wrap {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    padding: 0 24px 40px;
+  }
+  .grid-card {
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    position: relative;
+  }
+  .grid-card:hover {
+    transform: translateY(-4px);
+    border-color: #e94560;
+    box-shadow: 0 8px 24px rgba(233,69,96,0.25);
+  }
+  .grid-card-thumb {
+    width: 100%;
+    aspect-ratio: 9 / 16;
+    object-fit: cover;
+    display: block;
+    background: #111;
+  }
+  .grid-card-rank {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(15,15,26,0.85);
+    color: #e94560;
+    font-size: 18px;
+    font-weight: bold;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #e94560;
+  }
+  .grid-card-rank.gold { color: #ffd700; border-color: #ffd700; }
+  .grid-card-rank.silver { color: #c0c0c0; border-color: #c0c0c0; }
+  .grid-card-rank.bronze { color: #cd7f32; border-color: #cd7f32; }
+  .grid-card-growth {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(233,69,96,0.9);
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 4px 8px;
+    border-radius: 12px;
+  }
+  .grid-card-body { padding: 12px; }
+  .grid-card-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #fff;
+    line-height: 1.4;
+    margin-bottom: 6px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .grid-card-channel {
+    font-size: 11px;
+    color: #aaa;
+    margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .grid-card-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #888;
+  }
+  .grid-card-stats span { display: flex; align-items: center; gap: 3px; }
+  .grid-card-stats .val { color: #e0e0e0; font-weight: bold; }
+
   /* Trends view */
   .trends-wrap { padding: 0 24px 40px; }
   .trend-card {
@@ -295,9 +406,14 @@
     </select>
     <label>検索:</label>
     <input type="text" id="searchInput" placeholder="タイトル・チャンネル名...">
+    <div class="view-toggle">
+      <button class="view-toggle-btn active" id="viewTable" title="テーブル表示">&#9776;</button>
+      <button class="view-toggle-btn" id="viewGrid" title="グリッド表示">&#9638;</button>
+    </div>
   </div>
   <div class="stats" id="statsArea"></div>
-  <div class="table-wrap">
+  <div id="gridContainer" class="grid-wrap" style="display:none;"></div>
+  <div class="table-wrap" id="tableContainer">
     <div id="emptyState" class="empty-state">
       <p>ranking_history.json を読み込んでください</p>
       <p style="font-size:14px;color:#555;">python main.py を実行すると自動生成されます</p>
@@ -382,6 +498,21 @@ let dates = [];
 let currentDate = '';
 let allData = [];
 let currentSort = { key: 'growth_rate', desc: true };
+let currentView = 'table'; // 'table' or 'grid'
+
+// --- View toggle ---
+document.getElementById('viewTable').addEventListener('click', () => {
+  currentView = 'table';
+  document.getElementById('viewTable').classList.add('active');
+  document.getElementById('viewGrid').classList.remove('active');
+  renderAll();
+});
+document.getElementById('viewGrid').addEventListener('click', () => {
+  currentView = 'grid';
+  document.getElementById('viewGrid').classList.add('active');
+  document.getElementById('viewTable').classList.remove('active');
+  renderAll();
+});
 
 // --- Tab switching ---
 document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -523,13 +654,35 @@ function renderAll() {
     `;
   } else { statsArea.innerHTML = ''; }
 
+  const tableContainer = document.getElementById('tableContainer');
+  const gridContainer = document.getElementById('gridContainer');
   const table = document.getElementById('rankingTable');
   const empty = document.getElementById('emptyState');
   const tbody = document.getElementById('tableBody');
 
   if (data.length === 0 && allData.length === 0 && dates.length === 0) {
-    table.style.display = 'none'; empty.style.display = 'block'; return;
+    table.style.display = 'none'; empty.style.display = 'block';
+    tableContainer.style.display = ''; gridContainer.style.display = 'none';
+    return;
   }
+
+  // Toggle table vs grid
+  if (currentView === 'grid') {
+    tableContainer.style.display = 'none';
+    gridContainer.style.display = '';
+    renderGrid(data);
+  } else {
+    tableContainer.style.display = '';
+    gridContainer.style.display = 'none';
+    renderTable(data);
+  }
+}
+
+function renderTable(data) {
+  const table = document.getElementById('rankingTable');
+  const empty = document.getElementById('emptyState');
+  const tbody = document.getElementById('tableBody');
+
   table.style.display = 'table'; empty.style.display = 'none';
 
   if (data.length === 0) {
@@ -566,6 +719,53 @@ function renderAll() {
       <td>${linkHtml}</td>
     </tr>`;
   }).join('');
+}
+
+function renderGrid(data) {
+  const gridContainer = document.getElementById('gridContainer');
+
+  if (data.length === 0) {
+    gridContainer.innerHTML = '<div class="empty-state"><p>この日のデータには検索結果がありません</p></div>';
+    return;
+  }
+
+  gridContainer.innerHTML = data.map((d, i) => {
+    const rank = i + 1;
+    const rankColor = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+    const vidMatch = (d.url || '').match(/shorts\/([a-zA-Z0-9_-]+)/);
+    const videoId = vidMatch ? vidMatch[1] : '';
+    const thumbSrc = videoId
+      ? `https://i.ytimg.com/vi/${videoId}/oar2.jpg`
+      : '';
+    const thumbErr = videoId
+      ? `onerror="this.src='https://i.ytimg.com/vi/${videoId}/hqdefault.jpg'"`
+      : '';
+    const link = d.url ? esc(d.url) : '#';
+
+    return `<a href="${link}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+      <div class="grid-card">
+        <div class="grid-card-rank ${rankColor}">${rank}</div>
+        <div class="grid-card-growth">${d.growth_rate}x</div>
+        ${thumbSrc ? `<img class="grid-card-thumb" src="${thumbSrc}" ${thumbErr} alt="" loading="lazy">` : '<div class="grid-card-thumb"></div>'}
+        <div class="grid-card-body">
+          <div class="grid-card-title">${esc(d.title)}</div>
+          <div class="grid-card-channel">${esc(d.channel)}</div>
+          <div class="grid-card-stats">
+            <span><span class="val">${formatNum(d.views)}</span> 再生</span>
+            <span><span class="val">${formatNum(d.subscribers)}</span> 登録</span>
+            <span><span class="val">${d.comments}</span> コメ</span>
+          </div>
+        </div>
+      </div>
+    </a>`;
+  }).join('');
+}
+
+function formatNum(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 10000) return (n / 10000).toFixed(1) + '万';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return n.toString();
 }
 
 // --- Render trends view ---
