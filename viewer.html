@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VTuber Shorts バズランキング</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo', sans-serif;
+    background: #0f0f1a;
+    color: #e0e0e0;
+    min-height: 100vh;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    padding: 32px 24px 24px;
+    text-align: center;
+    border-bottom: 2px solid #e94560;
+  }
+  .header h1 { font-size: 28px; color: #fff; margin-bottom: 8px; }
+  .header .subtitle { font-size: 14px; color: #aaa; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    padding: 16px 24px 0;
+  }
+  .tab-btn {
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-bottom: none;
+    color: #888;
+    padding: 10px 28px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    transition: all 0.2s;
+  }
+  .tab-btn.active { background: #0f0f1a; color: #e94560; border-color: #e94560; }
+  .tab-btn:hover:not(.active) { color: #ccc; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+    flex-wrap: wrap;
+  }
+  .controls label { font-size: 14px; color: #aaa; }
+  .controls select, .controls input[type="text"] {
+    background: #1a1a2e;
+    border: 1px solid #333;
+    color: #e0e0e0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  .controls input[type="file"] { display: none; }
+
+  /* Date nav */
+  .date-nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 0 24px 12px;
+    flex-wrap: wrap;
+  }
+  .date-nav input[type="date"] {
+    background: #1a1a2e;
+    border: 1px solid #e94560;
+    color: #e0e0e0;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+  }
+  .nav-btn {
+    background: #1a1a2e;
+    border: 1px solid #444;
+    color: #e0e0e0;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .nav-btn:hover { border-color: #e94560; color: #e94560; }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+  .date-info { font-size: 12px; color: #666; margin-left: 8px; }
+
+  .file-btn {
+    background: #e94560;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    transition: background 0.2s;
+  }
+  .file-btn:hover { background: #c73650; }
+
+  /* Stats */
+  .stats {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    padding: 0 24px 16px;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 12px 24px;
+    text-align: center;
+    min-width: 130px;
+  }
+  .stat-card .value { font-size: 22px; font-weight: bold; color: #e94560; }
+  .stat-card .label { font-size: 11px; color: #888; margin-top: 4px; }
+
+  /* Table */
+  .table-wrap { padding: 0 24px 40px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  thead th {
+    background: #1a1a2e;
+    padding: 12px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: #ccc;
+    border-bottom: 2px solid #e94560;
+    position: sticky;
+    top: 0;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    z-index: 2;
+  }
+  thead th:hover { color: #e94560; }
+  tbody tr { border-bottom: 1px solid #222; transition: background 0.15s; }
+  tbody tr:hover { background: #1a1a2e; }
+  tbody td { padding: 10px; vertical-align: middle; }
+  .rank { font-size: 20px; font-weight: bold; text-align: center; min-width: 40px; }
+  .rank-1 { color: #ffd700; }
+  .rank-2 { color: #c0c0c0; }
+  .rank-3 { color: #cd7f32; }
+  .thumb-cell { width: 80px; min-width: 80px; }
+  .thumb-cell a { display: block; }
+  .thumb-cell img {
+    width: 72px; height: 96px; object-fit: cover; border-radius: 6px;
+    transition: transform 0.2s, box-shadow 0.2s; vertical-align: middle;
+  }
+  .thumb-cell img:hover {
+    transform: scale(1.8); box-shadow: 0 4px 24px rgba(233,69,96,0.5);
+    z-index: 10; position: relative;
+  }
+  .title-cell { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .channel-cell { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #aaa; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .growth { font-weight: bold; text-align: right; }
+  .growth-high { color: #ff4d6d; }
+  .growth-mid  { color: #f9844a; }
+  .growth-low  { color: #90be6d; }
+  .bar-cell { min-width: 100px; }
+  .bar-bg { background: #222; border-radius: 4px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #e94560, #f9844a); transition: width 0.4s ease; }
+  .link-btn {
+    display: inline-block; background: #e94560; color: #fff; text-decoration: none;
+    padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: bold;
+    transition: background 0.2s; white-space: nowrap;
+  }
+  .link-btn:hover { background: #c73650; }
+  .empty-state { text-align: center; padding: 80px 24px; color: #666; }
+  .empty-state p { font-size: 18px; margin-bottom: 16px; }
+  .updated { font-size: 12px; color: #555; text-align: center; padding: 8px; }
+
+  /* Trends view */
+  .trends-wrap { padding: 0 24px 40px; }
+  .trend-card {
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    transition: border-color 0.2s;
+  }
+  .trend-card:hover { border-color: #e94560; }
+  .trend-rank {
+    font-size: 28px; font-weight: bold; color: #e94560;
+    min-width: 48px; text-align: center;
+  }
+  .trend-info { flex: 1; min-width: 0; }
+  .trend-channel { font-size: 18px; font-weight: bold; color: #fff; margin-bottom: 4px; }
+  .trend-meta { font-size: 12px; color: #888; margin-bottom: 8px; }
+  .trend-sparkline {
+    display: flex; align-items: flex-end; gap: 3px; height: 40px;
+  }
+  .spark-bar {
+    background: linear-gradient(180deg, #e94560, #f9844a);
+    border-radius: 2px 2px 0 0;
+    min-width: 18px;
+    transition: height 0.3s;
+    position: relative;
+  }
+  .spark-bar .spark-label {
+    position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+    font-size: 9px; color: #888; white-space: nowrap;
+  }
+  .spark-bar .spark-value {
+    position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%);
+    font-size: 10px; color: #ccc; white-space: nowrap; font-weight: bold;
+  }
+  .trend-stats {
+    display: flex; gap: 16px; text-align: center;
+  }
+  .trend-stat-val { font-size: 18px; font-weight: bold; color: #e94560; }
+  .trend-stat-lbl { font-size: 10px; color: #888; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>VTuber Shorts バズランキング</h1>
+  <div class="subtitle">登録者 500〜50,000人 / 再生数≧登録者×5 / コメント≧10 / 10〜50秒</div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="daily">日別ランキング</button>
+  <button class="tab-btn" data-tab="trends">チャンネル推移</button>
+</div>
+
+<!-- Daily view -->
+<div id="dailyView">
+  <div class="date-nav">
+    <button class="nav-btn" id="prevDay" title="前日">&#9664;</button>
+    <input type="date" id="datePicker">
+    <button class="nav-btn" id="nextDay" title="翌日">&#9654;</button>
+    <span class="date-info" id="dateInfo"></span>
+    <label for="fileInput" class="file-btn" style="margin-left:12px">JSONを手動読込</label>
+    <input type="file" id="fileInput" accept=".json,.csv">
+  </div>
+  <div class="controls">
+    <label>並び替え:</label>
+    <select id="sortSelect">
+      <option value="growth_rate-desc">伸び率（高い順）</option>
+      <option value="views-desc">再生数（多い順）</option>
+      <option value="comments-desc">コメント数（多い順）</option>
+      <option value="subscribers-asc">登録者数（少ない順）</option>
+      <option value="published-desc">投稿日（新しい順）</option>
+    </select>
+    <label>検索:</label>
+    <input type="text" id="searchInput" placeholder="タイトル・チャンネル名...">
+  </div>
+  <div class="stats" id="statsArea"></div>
+  <div class="table-wrap">
+    <div id="emptyState" class="empty-state">
+      <p>ranking_history.json を読み込んでください</p>
+      <p style="font-size:14px;color:#555;">python main.py を実行すると自動生成されます</p>
+    </div>
+    <table id="rankingTable" style="display:none;">
+      <thead>
+        <tr>
+          <th data-col="rank">順位</th>
+          <th>サムネイル</th>
+          <th data-col="title">タイトル</th>
+          <th data-col="channel">チャンネル名</th>
+          <th data-col="subscribers">登録者数</th>
+          <th data-col="views">再生数</th>
+          <th>伸び率グラフ</th>
+          <th data-col="growth_rate">伸び率</th>
+          <th data-col="comments">コメント数</th>
+          <th data-col="duration">秒数</th>
+          <th data-col="published">投稿日</th>
+          <th>リンク</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Trends view -->
+<div id="trendsView" style="display:none;">
+  <div class="controls">
+    <label>検索:</label>
+    <input type="text" id="trendSearch" placeholder="チャンネル名...">
+  </div>
+  <div class="stats" id="trendStats"></div>
+  <div class="trends-wrap" id="trendsBody"></div>
+</div>
+
+<div class="updated" id="updatedAt"></div>
+
+<script>
+let historyData = {};
+let dates = [];
+let currentDate = '';
+let allData = [];
+let currentSort = { key: 'growth_rate', desc: true };
+
+// --- Tab switching ---
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    document.getElementById('dailyView').style.display = tab === 'daily' ? '' : 'none';
+    document.getElementById('trendsView').style.display = tab === 'trends' ? '' : 'none';
+    if (tab === 'trends') renderTrends();
+  });
+});
+
+// --- Date navigation ---
+document.getElementById('datePicker').addEventListener('change', (e) => {
+  loadDate(e.target.value);
+});
+document.getElementById('prevDay').addEventListener('click', () => navigateDate(-1));
+document.getElementById('nextDay').addEventListener('click', () => navigateDate(1));
+
+function navigateDate(offset) {
+  const idx = dates.indexOf(currentDate);
+  const newIdx = idx + offset;
+  if (newIdx >= 0 && newIdx < dates.length) loadDate(dates[newIdx]);
+}
+
+function loadDate(dateStr) {
+  if (!historyData[dateStr]) return;
+  currentDate = dateStr;
+  document.getElementById('datePicker').value = dateStr;
+  allData = historyData[dateStr];
+  const idx = dates.indexOf(dateStr);
+  document.getElementById('prevDay').disabled = idx <= 0;
+  document.getElementById('nextDay').disabled = idx >= dates.length - 1;
+  document.getElementById('dateInfo').textContent =
+    `${idx + 1} / ${dates.length} 日分のデータ`;
+  renderAll();
+}
+
+// --- Sort & search ---
+document.getElementById('sortSelect').addEventListener('change', (e) => {
+  const [key, dir] = e.target.value.split('-');
+  currentSort = { key, desc: dir === 'desc' };
+  renderAll();
+});
+document.getElementById('searchInput').addEventListener('input', () => renderAll());
+
+// --- File input (manual load) ---
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    let text = ev.target.result;
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    try {
+      const parsed = JSON.parse(text);
+      historyData = parsed;
+    } catch {
+      // Try CSV fallback
+      historyData = { "manual": parseCSVToArray(text) };
+    }
+    initFromHistory();
+    document.getElementById('updatedAt').textContent = `読み込み: ${file.name} (${new Date().toLocaleString('ja-JP')})`;
+  };
+  reader.readAsText(file, 'utf-8');
+});
+
+// --- Auto-load ranking_history.json ---
+fetch('ranking_history.json')
+  .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+  .then(text => {
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+    historyData = JSON.parse(text);
+    initFromHistory();
+    document.getElementById('updatedAt').textContent =
+      `自動読み込み: ranking_history.json (${new Date().toLocaleString('ja-JP')})`;
+  })
+  .catch(() => {});
+
+function initFromHistory() {
+  dates = Object.keys(historyData).sort();
+  if (dates.length === 0) return;
+  const picker = document.getElementById('datePicker');
+  picker.min = dates[0];
+  picker.max = dates[dates.length - 1];
+  loadDate(dates[dates.length - 1]);
+}
+
+// --- CSV fallback parser ---
+function parseCSVToArray(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const arr = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    if (cols.length < 10) continue;
+    let url = cols[9] || '';
+    const hm = url.match(/HYPERLINK\("([^"]+)"/);
+    if (hm) url = hm[1];
+    if (!url.startsWith('http')) url = '';
+    arr.push({
+      rank: parseInt(cols[0]) || i,
+      title: cols[1] || '', channel: cols[2] || '',
+      subscribers: parseInt(cols[3]) || 0, views: parseInt(cols[4]) || 0,
+      growth_rate: parseFloat(cols[5]) || 0, comments: parseInt(cols[6]) || 0,
+      duration: parseInt(cols[7]) || 0, published: cols[8] || '', url: url,
+    });
+  }
+  return arr;
+}
+
+function parseCSVLine(line) {
+  const result = []; let current = ''; let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQ) {
+      if (ch === '"' && line[i+1] === '"') { current += '"'; i++; }
+      else if (ch === '"') inQ = false;
+      else current += ch;
+    } else {
+      if (ch === '"') inQ = true;
+      else if (ch === ',') { result.push(current.trim()); current = ''; }
+      else current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+// --- Render daily ranking ---
+function renderAll() {
+  const query = document.getElementById('searchInput').value.toLowerCase();
+  let data = allData.filter(d =>
+    !query || d.title.toLowerCase().includes(query) || d.channel.toLowerCase().includes(query)
+  );
+  data.sort((a, b) => {
+    let va = a[currentSort.key], vb = b[currentSort.key];
+    if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+    if (va < vb) return currentSort.desc ? 1 : -1;
+    if (va > vb) return currentSort.desc ? -1 : 1;
+    return 0;
+  });
+
+  // Stats
+  const statsArea = document.getElementById('statsArea');
+  if (data.length > 0) {
+    const totalViews = data.reduce((s, d) => s + d.views, 0);
+    const avgGrowth = (data.reduce((s, d) => s + d.growth_rate, 0) / data.length).toFixed(1);
+    const maxGrowth = Math.max(...data.map(d => d.growth_rate));
+    statsArea.innerHTML = `
+      <div class="stat-card"><div class="value">${data.length}</div><div class="label">ランクイン動画数</div></div>
+      <div class="stat-card"><div class="value">${totalViews.toLocaleString()}</div><div class="label">合計再生数</div></div>
+      <div class="stat-card"><div class="value">${avgGrowth}x</div><div class="label">平均伸び率</div></div>
+      <div class="stat-card"><div class="value">${maxGrowth}x</div><div class="label">最高伸び率</div></div>
+    `;
+  } else { statsArea.innerHTML = ''; }
+
+  const table = document.getElementById('rankingTable');
+  const empty = document.getElementById('emptyState');
+  const tbody = document.getElementById('tableBody');
+
+  if (data.length === 0 && allData.length === 0 && dates.length === 0) {
+    table.style.display = 'none'; empty.style.display = 'block'; return;
+  }
+  table.style.display = 'table'; empty.style.display = 'none';
+
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#666;padding:40px;">この日のデータには検索結果がありません</td></tr>';
+    return;
+  }
+
+  const maxGrowth = Math.max(...data.map(d => d.growth_rate), 1);
+
+  tbody.innerHTML = data.map((d, i) => {
+    const rank = i + 1;
+    const rankClass = rank <= 3 ? ` rank-${rank}` : '';
+    const growthClass = d.growth_rate >= 15 ? 'growth-high' : d.growth_rate >= 8 ? 'growth-mid' : 'growth-low';
+    const barWidth = (d.growth_rate / maxGrowth * 100).toFixed(1);
+    const linkHtml = d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" class="link-btn">再生</a>` : '';
+    const vidMatch = (d.url || '').match(/shorts\/([a-zA-Z0-9_-]+)/);
+    const videoId = vidMatch ? vidMatch[1] : '';
+    const thumbHtml = videoId
+      ? `<a href="${esc(d.url)}" target="_blank" rel="noopener"><img src="https://i.ytimg.com/vi/${videoId}/oar2.jpg" alt="" loading="lazy" onerror="this.src='https://i.ytimg.com/vi/${videoId}/hqdefault.jpg'"></a>`
+      : '';
+
+    return `<tr>
+      <td class="rank${rankClass}">${rank}</td>
+      <td class="thumb-cell">${thumbHtml}</td>
+      <td class="title-cell" title="${esc(d.title)}">${esc(d.title)}</td>
+      <td class="channel-cell" title="${esc(d.channel)}">${esc(d.channel)}</td>
+      <td class="num">${(d.subscribers||0).toLocaleString()}</td>
+      <td class="num">${(d.views||0).toLocaleString()}</td>
+      <td class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${barWidth}%"></div></div></td>
+      <td class="growth ${growthClass}">${d.growth_rate}x</td>
+      <td class="num">${(d.comments||0).toLocaleString()}</td>
+      <td class="num">${d.duration}s</td>
+      <td>${d.published || ''}</td>
+      <td>${linkHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+// --- Render trends view ---
+document.getElementById('trendSearch').addEventListener('input', () => renderTrends());
+
+function renderTrends() {
+  const query = document.getElementById('trendSearch').value.toLowerCase();
+
+  // Aggregate: channel -> [{date, rank, views, growth_rate, subscribers, url}]
+  const channelMap = {};
+  for (const date of dates) {
+    for (const d of historyData[date]) {
+      const key = d.channel;
+      if (!channelMap[key]) channelMap[key] = { channel: d.channel, entries: [], urls: new Set() };
+      channelMap[key].entries.push({
+        date, rank: d.rank, views: d.views,
+        growth_rate: d.growth_rate, subscribers: d.subscribers,
+      });
+      if (d.url) channelMap[key].urls.add(d.url);
+    }
+  }
+
+  // Convert to array, filter, sort
+  let channels = Object.values(channelMap);
+  if (query) channels = channels.filter(c => c.channel.toLowerCase().includes(query));
+  // Sort by appearances desc, then avg growth desc
+  channels.sort((a, b) => {
+    if (b.entries.length !== a.entries.length) return b.entries.length - a.entries.length;
+    const avgA = a.entries.reduce((s, e) => s + e.growth_rate, 0) / a.entries.length;
+    const avgB = b.entries.reduce((s, e) => s + e.growth_rate, 0) / b.entries.length;
+    return avgB - avgA;
+  });
+
+  // Stats
+  const statsEl = document.getElementById('trendStats');
+  const multiAppear = channels.filter(c => c.entries.length >= 2).length;
+  statsEl.innerHTML = `
+    <div class="stat-card"><div class="value">${dates.length}</div><div class="label">計測日数</div></div>
+    <div class="stat-card"><div class="value">${channels.length}</div><div class="label">チャンネル数</div></div>
+    <div class="stat-card"><div class="value">${multiAppear}</div><div class="label">複数日ランクイン</div></div>
+  `;
+
+  // Render cards
+  const body = document.getElementById('trendsBody');
+  if (channels.length === 0) {
+    body.innerHTML = '<div class="empty-state"><p>データがありません</p></div>';
+    return;
+  }
+
+  const maxGrowth = Math.max(...channels.flatMap(c => c.entries.map(e => e.growth_rate)), 1);
+
+  body.innerHTML = channels.map((c, idx) => {
+    const avgGrowth = (c.entries.reduce((s, e) => s + e.growth_rate, 0) / c.entries.length).toFixed(1);
+    const maxViews = Math.max(...c.entries.map(e => e.views));
+    const latestSub = c.entries[c.entries.length - 1].subscribers;
+    const latestUrl = [...c.urls][c.urls.size - 1] || '';
+
+    // Sparkline bars (growth per date)
+    const sparkMax = Math.max(...c.entries.map(e => e.growth_rate), 1);
+    const sparkBars = c.entries.map(e => {
+      const h = Math.max((e.growth_rate / sparkMax) * 36, 3);
+      return `<div class="spark-bar" style="height:${h}px; width:${Math.max(18, 60/c.entries.length)}px;" title="${e.date}: ${e.growth_rate}x">
+        <span class="spark-label">${e.date.slice(5)}</span>
+        <span class="spark-value">${e.growth_rate}x</span>
+      </div>`;
+    }).join('');
+
+    const linkHtml = latestUrl
+      ? `<a href="${esc(latestUrl)}" target="_blank" rel="noopener" class="link-btn" style="margin-top:4px;">最新動画</a>`
+      : '';
+
+    return `<div class="trend-card">
+      <div class="trend-rank">${idx + 1}</div>
+      <div class="trend-info">
+        <div class="trend-channel">${esc(c.channel)}</div>
+        <div class="trend-meta">登録者 ${latestSub.toLocaleString()}人 / ${c.entries.length}日間ランクイン</div>
+        <div class="trend-sparkline" style="margin-top:20px;margin-bottom:20px;">${sparkBars}</div>
+      </div>
+      <div style="text-align:center;">
+        <div class="trend-stats">
+          <div><div class="trend-stat-val">${avgGrowth}x</div><div class="trend-stat-lbl">平均伸び率</div></div>
+          <div><div class="trend-stat-val">${maxViews.toLocaleString()}</div><div class="trend-stat-lbl">最高再生数</div></div>
+        </div>
+        ${linkHtml}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function esc(str) {
+  return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Column header sort
+document.querySelectorAll('thead th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (currentSort.key === col) currentSort.desc = !currentSort.desc;
+    else currentSort = { key: col, desc: true };
+    const sel = document.getElementById('sortSelect');
+    const val = `${col}-${currentSort.desc ? 'desc' : 'asc'}`;
+    for (const opt of sel.options) { if (opt.value === val) { sel.value = val; break; } }
+    renderAll();
+  });
+});
+</script>
+</body>
+</html>

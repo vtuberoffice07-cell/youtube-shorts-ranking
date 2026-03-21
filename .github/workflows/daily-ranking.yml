@@ -1,0 +1,39 @@
+name: Daily VTuber Shorts Ranking
+
+on:
+  schedule:
+    # 毎日日本時間 AM 7:00 に実行（UTC 22:00）
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+    # 手動実行も可能
+
+jobs:
+  fetch-ranking:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run ranking script
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: python main.py
+
+      - name: Commit and push results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ranking_history.json ranking_output.csv
+          git diff --cached --quiet || git commit -m "ranking: $(date +%Y-%m-%d) のデータを追加"
+          git push

@@ -1,0 +1,432 @@
+import csv
+import io
+import json
+import os
+import re
+import sys
+import unicodedata
+from datetime import datetime, timedelta, timezone
+
+from dotenv import load_dotenv
+from googleapiclient.discovery import build
+
+# Windows cp932 で出力エラーを防ぐ
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+
+load_dotenv()
+
+API_KEY = os.getenv("YOUTUBE_API_KEY")
+if not API_KEY or API_KEY == "YOUR_API_KEY_HERE":
+    print("エラー: .env ファイルに YOUTUBE_API_KEY を設定してください。")
+    sys.exit(1)
+
+youtube = build("youtube", "v3", developerKey=API_KEY)
+
+# --- フィルタ条件 ---
+SEARCH_QUERIES = ["#vtuber", "新人Vtuber", "個人Vtuber", "Vtuber準備中"]
+MIN_SUBSCRIBERS = 500
+MAX_SUBSCRIBERS = 50000
+VIEW_MULTIPLIER = 5  # 再生数 >= 登録者数 × この値
+MIN_COMMENTS = 10
+MIN_DURATION_SEC = 10
+MAX_DURATION_SEC = 50
+SEARCH_DAYS = 3  # 検索対象日数
+DAYS_PER_CHUNK = 1  # 何日分を1回のAPI呼び出しでまとめるか（クォータ節約）
+MAX_RESULTS_PER_QUERY = 50  # 各クエリ×期間あたりの最大取得数
+
+# --- NGキーワード（切り抜き・まとめ除外） ---
+NG_KEYWORDS = [
+    "切り抜き", "まとめ", "速報", "手書き", "反応",
+    "ホロライブ", "hololive", "にじさんじ", "nijisanji",
+    "ぶいすぽ", "ネオポルテ",
+]
+
+
+def parse_iso8601_duration(duration_str):
+    """ISO 8601 duration (PT1M30S等) を秒数に変換する。"""
+    match = re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", duration_str)
+    if not match:
+        return 0
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    seconds = int(match.group(3) or 0)
+    return hours * 3600 + minutes * 60 + seconds
+
+
+def contains_ng_keyword(text):
+    """テキストにNGキーワードが含まれているかチェックする。"""
+    if not text:
+        return False
+    text_lower = text.lower()
+    for ng in NG_KEYWORDS:
+        if ng.lower() in text_lower:
+            return True
+    return False
+
+
+def search_shorts():
+    """複数クエリ × 期間チャンク単位で網羅的にショート動画を検索する。"""
+    seen = set()
+    video_ids = []
+    now = datetime.now(timezone.utc)
+    api_calls = 0
+
+    # 期間チャンクを生成（DAYS_PER_CHUNK日ごと）
+    chunks = []
+    for start_offset in range(SEARCH_DAYS, 0, -DAYS_PER_CHUNK):
+        end_offset = max(start_offset - DAYS_PER_CHUNK, 0)
+        chunk_start = now - timedelta(days=start_offset)
+        chunk_end = now - timedelta(days=end_offset)
+        chunks.append((chunk_start, chunk_end))
+
+    total_tasks = len(SEARCH_QUERIES) * len(chunks)
+    completed = 0
+
+    for query in SEARCH_QUERIES:
+        for chunk_start, chunk_end in chunks:
+            published_after = chunk_start.strftime("%Y-%m-%dT%H:%M:%SZ")
+            published_before = chunk_end.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+            completed += 1
+            progress = f"[{completed}/{total_tasks}]"
+
+            try:
+                request = youtube.search().list(
+                    q=query,
+                    type="video",
+                    videoDuration="short",
+                    publishedAfter=published_after,
+                    publishedBefore=published_before,
+                    order="viewCount",
+                    part="id",
+                    maxResults=MAX_RESULTS_PER_QUERY,
+                )
+                response = request.execute()
+                api_calls += 1
+
+                new_count = 0
+                for item in response.get("items", []):
+                    vid = item["id"]["videoId"]
+                    if vid not in seen:
+                        seen.add(vid)
+                        video_ids.append(vid)
+                        new_count += 1
+
+                if new_count > 0:
+                    date_range = f"{chunk_start.strftime('%m/%d')}~{chunk_end.strftime('%m/%d')}"
+                    print(f"  {progress} \"{query}\" {date_range}: +{new_count}件 (累計{len(video_ids)})")
+
+            except Exception as e:
+                error_msg = str(e)
+                if "quotaExceeded" in error_msg:
+                    print(f"\n⚠ APIクォータ上限に達しました。取得済み {len(video_ids)} 件で続行します。")
+                    print(f"  (API呼び出し: {api_calls}回, 消費クォータ: 約{api_calls * 100} units)")
+                    return video_ids
+                print(f"  {progress} エラー: {e}")
+
+    print(f"\n検索完了: {len(video_ids)} 件の動画を取得 (API呼び出し: {api_calls}回)")
+    return video_ids
+
+
+def get_video_details(video_ids):
+    """動画IDリストから動画の詳細情報を一括取得する。"""
+    videos = []
+    for i in range(0, len(video_ids), 50):
+        batch = video_ids[i : i + 50]
+        request = youtube.videos().list(
+            part="snippet,contentDetails,statistics",
+            id=",".join(batch),
+        )
+        response = request.execute()
+        videos.extend(response.get("items", []))
+    return videos
+
+
+def get_channel_details(channel_ids):
+    """チャンネルIDリストから登録者数を一括取得する。"""
+    channels = {}
+    unique_ids = list(set(channel_ids))
+    for i in range(0, len(unique_ids), 50):
+        batch = unique_ids[i : i + 50]
+        request = youtube.channels().list(
+            part="statistics,snippet",
+            id=",".join(batch),
+        )
+        response = request.execute()
+        for item in response.get("items", []):
+            sub_count = int(item["statistics"].get("subscriberCount", 0))
+            if item["statistics"].get("hiddenSubscriberCount", False):
+                sub_count = 0
+            channels[item["id"]] = {
+                "subscriberCount": sub_count,
+                "title": item["snippet"]["title"],
+            }
+    return channels
+
+
+def is_blacklisted(video, channel_name):
+    """切り抜き・まとめ動画かどうか判定する。"""
+    # チャンネル名に「切り抜き」が含まれていたら完全除外
+    if "切り抜き" in channel_name:
+        return True
+
+    # タイトル、チャンネル名、説明文、タグをチェック
+    title = video["snippet"].get("title", "")
+    description = video["snippet"].get("description", "")
+    tags = video["snippet"].get("tags", [])
+    tags_text = " ".join(tags)
+
+    for text in [title, channel_name, description, tags_text]:
+        if contains_ng_keyword(text):
+            return True
+
+    return False
+
+
+def has_japanese_kana(text):
+    """テキストにひらがな or カタカナが含まれているか判定する。
+    漢字のみ（中国語・台湾語）を除外するため、かな文字の存在を必須とする。"""
+    if not text:
+        return False
+    for ch in text:
+        if ("\u3040" <= ch <= "\u309F" or  # ひらがな
+            "\u30A0" <= ch <= "\u30FF"):   # カタカナ
+            return True
+    return False
+
+
+def is_japanese_vtuber(video, channel_name):
+    """日本語VTuberかどうかを判定する。タイトル・チャンネル名・説明文のいずれかにひらがな/カタカナがあればTrue。"""
+    title = video["snippet"].get("title", "")
+    description = video["snippet"].get("description", "")
+    return has_japanese_kana(title) or has_japanese_kana(channel_name) or has_japanese_kana(description)
+
+
+def filter_and_rank(videos, channels):
+    """条件でフィルタリングし、伸び率順にランキングする。"""
+    results = []
+    blacklisted_count = 0
+
+    for video in videos:
+        channel_id = video["snippet"]["channelId"]
+        channel_info = channels.get(channel_id)
+        if not channel_info:
+            continue
+
+        # ブラックリスト判定
+        if is_blacklisted(video, channel_info["title"]):
+            blacklisted_count += 1
+            continue
+
+        # 日本語VTuber判定
+        if not is_japanese_vtuber(video, channel_info["title"]):
+            continue
+
+        sub_count = channel_info["subscriberCount"]
+        view_count = int(video["statistics"].get("viewCount", 0))
+        comment_count = int(video["statistics"].get("commentCount", 0))
+        duration_sec = parse_iso8601_duration(
+            video["contentDetails"]["duration"]
+        )
+
+        # フィルタ条件チェック
+        if not (MIN_SUBSCRIBERS <= sub_count <= MAX_SUBSCRIBERS):
+            continue
+        if view_count < sub_count * VIEW_MULTIPLIER:
+            continue
+        if comment_count < MIN_COMMENTS:
+            continue
+        if not (MIN_DURATION_SEC <= duration_sec <= MAX_DURATION_SEC):
+            continue
+
+        growth_rate = view_count / sub_count if sub_count > 0 else 0
+
+        results.append(
+            {
+                "title": video["snippet"]["title"],
+                "channel": channel_info["title"],
+                "subscribers": sub_count,
+                "views": view_count,
+                "growth_rate": round(growth_rate, 1),
+                "comments": comment_count,
+                "duration": duration_sec,
+                "published": video["snippet"]["publishedAt"][:10],
+                "url": f"https://www.youtube.com/shorts/{video['id']}",
+            }
+        )
+
+    print(f"  → ブラックリスト除外: {blacklisted_count}件")
+    results.sort(key=lambda x: x["growth_rate"], reverse=True)
+    return results
+
+
+def display_results(results):
+    """ランキング結果をターミナルに表示する。"""
+    if not results:
+        print("\n条件に一致する動画が見つかりませんでした。")
+        return
+
+    print(f"\n{'='*120}")
+    print(f"  VTuber ショート動画 バズランキング（上位 {len(results)} 件）")
+    print(f"  条件: 登録者 {MIN_SUBSCRIBERS:,}〜{MAX_SUBSCRIBERS:,}人 / "
+          f"再生数≧登録者×{VIEW_MULTIPLIER} / コメント≧{MIN_COMMENTS} / "
+          f"{MIN_DURATION_SEC}〜{MAX_DURATION_SEC}秒")
+    print(f"  除外: 切り抜き・まとめ・速報・手書き・反応・大手事務所系")
+    print(f"{'='*120}")
+
+    header = (
+        f"{'順位':>4}  {'タイトル':<40}  {'チャンネル':<20}  "
+        f"{'登録者':>8}  {'再生数':>10}  {'伸び率':>6}  "
+        f"{'コメント':>6}  {'秒数':>4}  {'投稿日':<10}"
+    )
+    print(header)
+    print("-" * 120)
+
+    for i, r in enumerate(results, 1):
+        # Unicode正規化で結合文字を処理
+        raw_title = unicodedata.normalize("NFC", r["title"])
+        raw_channel = unicodedata.normalize("NFC", r["channel"])
+        title = raw_title[:38] + ".." if len(raw_title) > 40 else raw_title
+        channel = raw_channel[:18] + ".." if len(raw_channel) > 20 else raw_channel
+        print(
+            f"{i:>4}  {title:<40}  {channel:<20}  "
+            f"{r['subscribers']:>8,}  {r['views']:>10,}  "
+            f"{r['growth_rate']:>6.1f}x  {r['comments']:>6,}  "
+            f"{r['duration']:>4}s  {r['published']:<10}"
+        )
+
+    print(f"\n各動画のURL:")
+    for i, r in enumerate(results, 1):
+        print(f"  {i}. {r['url']}")
+
+
+def save_csv(results, filename="ranking_output.csv"):
+    """結果をCSVファイルに保存する。"""
+    if not results:
+        return
+
+    fieldnames = [
+        "順位", "タイトル", "チャンネル名", "登録者数", "再生数",
+        "伸び率", "コメント数", "動画秒数", "投稿日", "URL",
+    ]
+
+    try:
+        f = open(filename, "w", newline="", encoding="utf-8-sig")
+    except PermissionError:
+        # ファイルが開かれている場合、別名で保存
+        base, ext = os.path.splitext(filename)
+        filename = f"{base}_{datetime.now().strftime('%Y%m%d_%H%M%S')}{ext}"
+        print(f"  ※ 元ファイルが使用中のため {filename} に保存します")
+        f = open(filename, "w", newline="", encoding="utf-8-sig")
+    with f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for i, r in enumerate(results, 1):
+            writer.writerow(
+                {
+                    "順位": i,
+                    "タイトル": r["title"],
+                    "チャンネル名": r["channel"],
+                    "登録者数": r["subscribers"],
+                    "再生数": r["views"],
+                    "伸び率": f"{r['growth_rate']}x",
+                    "コメント数": r["comments"],
+                    "動画秒数": r["duration"],
+                    "投稿日": r["published"],
+                    "URL": f'=HYPERLINK("{r["url"]}","動画を開く")',
+                }
+            )
+
+    print(f"\nCSV出力: {filename}")
+
+
+HISTORY_FILE = "ranking_history.json"
+
+
+def save_history(results):
+    """結果を日付別の履歴JSONファイルに追加保存する。"""
+    if not results:
+        return
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # 既存の履歴を読み込む
+    history = {}
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                history = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            history = {}
+
+    # 今日のデータを追加（同日再実行は上書き）
+    history[today] = [
+        {
+            "rank": i,
+            "title": r["title"],
+            "channel": r["channel"],
+            "subscribers": r["subscribers"],
+            "views": r["views"],
+            "growth_rate": r["growth_rate"],
+            "comments": r["comments"],
+            "duration": r["duration"],
+            "published": r["published"],
+            "url": r["url"],
+        }
+        for i, r in enumerate(results, 1)
+    ]
+
+    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)
+
+    total_days = len(history)
+    print(f"履歴保存: {HISTORY_FILE} ({today}, 累計{total_days}日分)")
+
+
+def main():
+    print("YouTube Shorts VTuber バズランキングツール")
+    print("=" * 50)
+    print(f"検索クエリ: {SEARCH_QUERIES}")
+    print(f"検索期間: 直近{SEARCH_DAYS}日間（1日単位ループ）")
+    print(f"除外キーワード: {NG_KEYWORDS}")
+
+    num_chunks = -(-SEARCH_DAYS // DAYS_PER_CHUNK)  # 切り上げ除算
+    estimated_calls = len(SEARCH_QUERIES) * num_chunks
+    estimated_quota = estimated_calls * 100
+    print(f"\n⚠ 推定APIクォータ消費: 約{estimated_quota:,} units "
+          f"(search: {estimated_calls}回)")
+    if estimated_quota > 10000:
+        print("  ※ 無料枠(10,000 units/日)を超える可能性があります。")
+        print("  ※ クォータ上限に達した場合、その時点までの結果で続行します。")
+
+    # Step 1: ショート動画を検索（複数クエリ × 日付ループ）
+    print(f"\n[1/4] ショート動画を検索中...")
+    video_ids = search_shorts()
+
+    if not video_ids:
+        print("動画が見つかりませんでした。")
+        return
+
+    # Step 2: 動画の詳細情報を取得
+    print(f"[2/4] 動画の詳細情報を取得中...")
+    videos = get_video_details(video_ids)
+    print(f"  → {len(videos)} 件の動画情報を取得")
+
+    # Step 3: チャンネル情報を取得
+    print("[3/4] チャンネル情報を取得中...")
+    channel_ids = [v["snippet"]["channelId"] for v in videos]
+    channels = get_channel_details(channel_ids)
+    print(f"  → {len(channels)} チャンネルの情報を取得")
+
+    # Step 4: フィルタリング & ランキング
+    print("[4/4] フィルタリング & ランキング生成中...")
+    results = filter_and_rank(videos, channels)
+
+    # 結果表示 & CSV保存 & 履歴保存
+    display_results(results)
+    save_csv(results)
+    save_history(results)
+
+
+if __name__ == "__main__":
+    main()
