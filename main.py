@@ -343,6 +343,127 @@ def save_csv(results, filename="ranking_output.csv"):
     print(f"\nCSV出力: {filename}")
 
 
+# --- コメント分析用キーワードカテゴリ ---
+ANALYSIS_CATEGORIES = {
+    "面白さ・笑い": ["面白", "笑", "草", "ｗ", "www", "ww", "ﾜﾛ", "ワロ", "ウケ", "爆笑", "吹いた", "吹き出", "ツボ", "腹筋"],
+    "かわいい・推し": ["かわい", "カワイ", "可愛", "推し", "推せ", "尊い", "てぇてぇ", "好き", "大好き", "すこ", "萌え", "きゅん", "癒し", "癒さ"],
+    "すごい・才能": ["すご", "スゴ", "凄", "上手", "うま", "ウマ", "天才", "才能", "プロ", "神", "最高", "やば", "ヤバ", "えぐ", "半端"],
+    "共感・あるある": ["わかる", "分かる", "あるある", "それな", "共感", "同じ", "わかりみ", "まさに", "ほんと", "リアル"],
+    "応援・期待": ["頑張", "がんば", "応援", "期待", "楽しみ", "待って", "登録", "チャンネル", "伸び", "もっと", "これから"],
+    "驚き・衝撃": ["えっ", "えぇ", "まじ", "マジ", "嘘", "ウソ", "衝撃", "びっくり", "驚", "初めて", "知らな", "そうなん"],
+    "声・ビジュアル": ["声", "イケボ", "かっこい", "カッコ", "イケメン", "美", "綺麗", "キレイ", "ビジュアル", "見た目", "顔"],
+    "編集・クオリティ": ["編集", "クオリティ", "完成度", "センス", "構成", "テンポ", "見やすい", "作り", "演出"],
+}
+
+
+def fetch_comments(video_id, max_results=30):
+    """YouTube APIで動画のコメントを取得する"""
+    try:
+        response = youtube.commentThreads().list(
+            part="snippet",
+            videoId=video_id,
+            maxResults=max_results,
+            order="relevance",
+            textFormat="plainText",
+        ).execute()
+
+        comments = []
+        for item in response.get("items", []):
+            text = item["snippet"]["topLevelComment"]["snippet"]["textDisplay"]
+            likes = item["snippet"]["topLevelComment"]["snippet"].get("likeCount", 0)
+            comments.append({"text": text, "likes": likes})
+
+        return comments
+    except Exception:
+        return []
+
+
+def analyze_comments(comments, video_info):
+    """コメントからバズった理由を分析する"""
+    if not comments:
+        return "コメントを取得できませんでした"
+
+    all_text = " ".join([c["text"] for c in comments])
+    top_comments = sorted(comments, key=lambda c: c["likes"], reverse=True)[:5]
+
+    # カテゴリごとのスコアを計算
+    scores = {}
+    for category, keywords in ANALYSIS_CATEGORIES.items():
+        count = 0
+        for kw in keywords:
+            count += all_text.lower().count(kw.lower())
+        if count > 0:
+            scores[category] = count
+
+    # スコア順にソート
+    sorted_categories = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+
+    # 分析テキスト生成
+    parts = []
+
+    # メインの評価理由
+    if sorted_categories:
+        top_reasons = sorted_categories[:3]
+        reason_texts = []
+        for cat, score in top_reasons:
+            if cat == "面白さ・笑い":
+                reason_texts.append("笑いやユーモアが視聴者に刺さった")
+            elif cat == "かわいい・推し":
+                reason_texts.append("かわいさや推しポイントが視聴者の心を掴んだ")
+            elif cat == "すごい・才能":
+                reason_texts.append("スキルやクオリティの高さに驚きの声が多数")
+            elif cat == "共感・あるある":
+                reason_texts.append("あるある感や共感性の高い内容が拡散を後押し")
+            elif cat == "応援・期待":
+                reason_texts.append("視聴者からの応援・期待の声が多く伸びに繋がった")
+            elif cat == "驚き・衝撃":
+                reason_texts.append("意外性や衝撃的な内容で注目を集めた")
+            elif cat == "声・ビジュアル":
+                reason_texts.append("声やビジュアルの魅力が評価された")
+            elif cat == "編集・クオリティ":
+                reason_texts.append("編集のクオリティやテンポの良さが好評")
+
+        parts.append("【バズ要因】" + "。".join(reason_texts) + "。")
+    else:
+        parts.append("【バズ要因】コメントの傾向から明確なバズ要因を特定中。")
+
+    # 伸び率からの補足分析
+    growth = video_info.get("growth_rate", 0)
+    subs = video_info.get("subscribers", 0)
+    if growth >= 50:
+        parts.append(f"【注目度】登録者{subs:,}人に対し伸び率{growth}xは驚異的。非フォロワーへの大規模な拡散が発生。")
+    elif growth >= 15:
+        parts.append(f"【注目度】伸び率{growth}xは高水準。おすすめフィードでの露出が拡散に寄与した可能性が高い。")
+    elif growth >= 5:
+        parts.append(f"【注目度】伸び率{growth}xは堅調。既存ファン以外にもリーチが広がっている。")
+
+    # 人気コメントの引用
+    if top_comments:
+        best = top_comments[0]
+        quote = best["text"].replace("\n", " ")[:80]
+        parts.append(f"【人気コメント】「{quote}」（いいね{best['likes']}件）")
+
+    return "\n".join(parts)
+
+
+def fetch_and_analyze_all(results):
+    """全ランキング動画のコメントを取得・分析する"""
+    print(f"\n[5/5] コメント分析中...")
+    total = len(results)
+
+    for i, r in enumerate(results):
+        video_id = r["url"].split("/shorts/")[-1] if "/shorts/" in r["url"] else ""
+        if not video_id:
+            r["analysis"] = "動画IDを取得できませんでした"
+            continue
+
+        print(f"  [{i+1}/{total}] {r['channel'][:20]}...")
+        comments = fetch_comments(video_id)
+        r["analysis"] = analyze_comments(comments, r)
+
+    print(f"  → {total}件の分析完了")
+
+
 HISTORY_FILE = "ranking_history.json"
 
 
@@ -375,6 +496,7 @@ def save_history(results):
             "duration": r["duration"],
             "published": r["published"],
             "url": r["url"],
+            "analysis": r.get("analysis", ""),
         }
         for i, r in enumerate(results, 1)
     ]
@@ -403,7 +525,7 @@ def main():
         print("  ※ クォータ上限に達した場合、その時点までの結果で続行します。")
 
     # Step 1: ショート動画を検索（複数クエリ × 日付ループ）
-    print(f"\n[1/4] ショート動画を検索中...")
+    print(f"\n[1/5] ショート動画を検索中...")
     video_ids = search_shorts()
 
     if not video_ids:
@@ -411,19 +533,23 @@ def main():
         return
 
     # Step 2: 動画の詳細情報を取得
-    print(f"[2/4] 動画の詳細情報を取得中...")
+    print(f"[2/5] 動画の詳細情報を取得中...")
     videos = get_video_details(video_ids)
     print(f"  → {len(videos)} 件の動画情報を取得")
 
     # Step 3: チャンネル情報を取得
-    print("[3/4] チャンネル情報を取得中...")
+    print("[3/5] チャンネル情報を取得中...")
     channel_ids = [v["snippet"]["channelId"] for v in videos]
     channels = get_channel_details(channel_ids)
     print(f"  → {len(channels)} チャンネルの情報を取得")
 
     # Step 4: フィルタリング & ランキング
-    print("[4/4] フィルタリング & ランキング生成中...")
+    print("[4/5] フィルタリング & ランキング生成中...")
     results = filter_and_rank(videos, channels)
+
+    # Step 5: コメント分析
+    if results:
+        fetch_and_analyze_all(results)
 
     # 結果表示 & CSV保存 & 履歴保存
     display_results(results)

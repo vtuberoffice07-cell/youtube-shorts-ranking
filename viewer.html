@@ -203,6 +203,66 @@
     transition: background 0.2s; white-space: nowrap;
   }
   .link-btn:hover { background: #c73650; }
+
+  /* Analysis row */
+  .analysis-row td {
+    padding: 0 !important;
+    border-bottom: 2px solid #e94560;
+  }
+  .analysis-box {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    margin: 0 10px 8px 10px;
+    padding: 16px 20px;
+    border-radius: 0 0 10px 10px;
+    border: 1px solid #333;
+    border-top: none;
+    font-size: 13px;
+    line-height: 1.8;
+    color: #ccc;
+    animation: slideDown 0.2s ease;
+  }
+  @keyframes slideDown {
+    from { opacity: 0; max-height: 0; }
+    to { opacity: 1; max-height: 500px; }
+  }
+  .analysis-box .analysis-section {
+    margin-bottom: 8px;
+  }
+  .analysis-box .analysis-label {
+    color: #e94560;
+    font-weight: bold;
+    font-size: 12px;
+  }
+  .analysis-box .analysis-text {
+    color: #ddd;
+  }
+  .analysis-box .analysis-quote {
+    color: #f9844a;
+    font-style: italic;
+  }
+  tbody tr.expandable { cursor: pointer; }
+  tbody tr.expandable:hover { background: #1e1e34; }
+  .expand-icon {
+    display: inline-block;
+    font-size: 10px;
+    color: #e94560;
+    margin-left: 6px;
+    transition: transform 0.2s;
+  }
+  .expand-icon.open { transform: rotate(90deg); }
+
+  /* Grid analysis tooltip */
+  .grid-card-analysis {
+    padding: 10px 12px;
+    border-top: 1px solid #333;
+    font-size: 11px;
+    line-height: 1.6;
+    color: #aaa;
+    display: none;
+  }
+  .grid-card:hover .grid-card-analysis { display: block; }
+  .grid-analysis-label { color: #e94560; font-weight: bold; }
+
   .empty-state { text-align: center; padding: 80px 24px; color: #666; }
   .empty-state p { font-size: 18px; margin-bottom: 16px; }
   .updated { font-size: 12px; color: #555; text-align: center; padding: 8px; }
@@ -754,15 +814,20 @@ function renderTable(data) {
     const rankClass = rank <= 3 ? ` rank-${rank}` : '';
     const growthClass = d.growth_rate >= 15 ? 'growth-high' : d.growth_rate >= 8 ? 'growth-mid' : 'growth-low';
     const barWidth = (d.growth_rate / maxGrowth * 100).toFixed(1);
-    const linkHtml = d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" class="link-btn">再生</a>` : '';
+    const linkHtml = d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" class="link-btn" onclick="event.stopPropagation()">再生</a>` : '';
     const vidMatch = (d.url || '').match(/shorts\/([a-zA-Z0-9_-]+)/);
     const videoId = vidMatch ? vidMatch[1] : '';
     const thumbHtml = videoId
-      ? `<a href="${esc(d.url)}" target="_blank" rel="noopener"><img src="https://i.ytimg.com/vi/${videoId}/oar2.jpg" alt="" loading="lazy" onerror="this.src='https://i.ytimg.com/vi/${videoId}/hqdefault.jpg'"></a>`
+      ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><img src="https://i.ytimg.com/vi/${videoId}/oar2.jpg" alt="" loading="lazy" onerror="this.src='https://i.ytimg.com/vi/${videoId}/hqdefault.jpg'"></a>`
       : '';
 
-    return `<tr>
-      <td class="rank${rankClass}">${rank}</td>
+    const hasAnalysis = d.analysis && d.analysis.trim();
+    const expandIcon = hasAnalysis ? '<span class="expand-icon">&#9654;</span>' : '';
+    const analysisHtml = hasAnalysis ? formatAnalysis(d.analysis) : '';
+    const rowId = `yt-analysis-${i}`;
+
+    let rows = `<tr class="${hasAnalysis ? 'expandable' : ''}" onclick="${hasAnalysis ? `toggleAnalysis('${rowId}', this)` : ''}">
+      <td class="rank${rankClass}">${rank}${expandIcon}</td>
       <td class="thumb-cell">${thumbHtml}</td>
       <td class="title-cell">${esc(d.title)}</td>
       <td class="channel-cell" title="${esc(d.channel)}">${esc(d.channel)}</td>
@@ -775,6 +840,37 @@ function renderTable(data) {
       <td>${d.published || ''}</td>
       <td>${linkHtml}</td>
     </tr>`;
+
+    if (hasAnalysis) {
+      rows += `<tr class="analysis-row" id="${rowId}" style="display:none;">
+        <td colspan="12"><div class="analysis-box">${analysisHtml}</div></td>
+      </tr>`;
+    }
+    return rows;
+  }).join('');
+}
+
+function toggleAnalysis(rowId, clickedRow) {
+  const analysisRow = document.getElementById(rowId);
+  const icon = clickedRow.querySelector('.expand-icon');
+  if (!analysisRow) return;
+  if (analysisRow.style.display === 'none') {
+    analysisRow.style.display = '';
+    if (icon) icon.classList.add('open');
+  } else {
+    analysisRow.style.display = 'none';
+    if (icon) icon.classList.remove('open');
+  }
+}
+
+function formatAnalysis(text) {
+  if (!text) return '';
+  return text.split('\n').map(line => {
+    // 【ラベル】の部分を色付きにする
+    line = line.replace(/【([^】]+)】/g, '<span class="analysis-label">【$1】</span>');
+    // 「コメント引用」をハイライト
+    line = line.replace(/「([^」]+)」/g, '<span class="analysis-quote">「$1」</span>');
+    return `<div class="analysis-section">${line}</div>`;
   }).join('');
 }
 
@@ -813,9 +909,16 @@ function renderGrid(data) {
             <span><span class="val">${d.comments}</span> コメ</span>
           </div>
         </div>
+        ${d.analysis ? `<div class="grid-card-analysis"><span class="grid-analysis-label">分析:</span> ${getFirstAnalysisLine(d.analysis)}</div>` : ''}
       </div>
     </a>`;
   }).join('');
+}
+
+function getFirstAnalysisLine(text) {
+  if (!text) return '';
+  const first = text.split('\n')[0] || '';
+  return esc(first.replace(/【[^】]+】/, '').trim()).substring(0, 80);
 }
 
 function formatNum(n) {
