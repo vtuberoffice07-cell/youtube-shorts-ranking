@@ -45,6 +45,19 @@ HISTORY_FILE = "tiktok_history.json"
 CSV_FILE = "tiktok_output.csv"
 
 
+def contains_japanese(text):
+    """テキストに日本語（ひらがな・カタカナ・漢字）が含まれているか判定"""
+    import unicodedata
+    for ch in text:
+        try:
+            name = unicodedata.name(ch, "")
+        except ValueError:
+            continue
+        if ("CJK" in name or "HIRAGANA" in name or "KATAKANA" in name):
+            return True
+    return False
+
+
 def search_tiktok_hashtag(hashtag, max_results=100):
     """Apify TikTok Scraper でハッシュタグ検索"""
     print(f"  検索中: #{hashtag} (最大{max_results}件)...")
@@ -165,7 +178,16 @@ def extract_video_data(items):
 
 
 def is_ng(video):
-    """ブラックリストチェック"""
+    """ブラックリストチェック + 日本語フィルタ"""
+    # 説明文本体に日本語が含まれていなければ除外
+    # （ハッシュタグ・アカウント名だけに日本語がある英語動画を排除）
+    title = video.get("title", "")
+    # ハッシュタグ部分を除去して本文だけで判定
+    import re as _re
+    title_no_tags = _re.sub(r'#\S+', '', title).strip()
+    if not contains_japanese(title_no_tags):
+        return True
+
     # チャンネル名に「切り抜き」が含まれていたら除外
     if "切り抜き" in video.get("author", ""):
         return True
