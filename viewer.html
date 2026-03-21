@@ -200,7 +200,7 @@
     transform: scale(1.8); box-shadow: 0 4px 24px rgba(233,69,96,0.5);
     z-index: 10; position: relative;
   }
-  .title-cell { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .title-cell { max-width: 340px; white-space: normal; word-break: break-word; line-height: 1.5; }
   .channel-cell { max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #aaa; }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .growth { font-weight: bold; text-align: right; }
@@ -590,7 +590,7 @@ function renderAll() {
     return `<tr>
       <td class="rank${rankClass}">${rank}</td>
       <td class="thumb-cell">${thumbHtml}</td>
-      <td class="title-cell" title="${esc(d.title)}">${esc(d.title)}</td>
+      <td class="title-cell">${esc(d.title)}</td>
       <td class="channel-cell" title="${esc(d.channel)}">${esc(d.channel)}</td>
       <td class="num">${(d.subscribers||0).toLocaleString()}</td>
       <td class="num">${(d.views||0).toLocaleString()}</td>
