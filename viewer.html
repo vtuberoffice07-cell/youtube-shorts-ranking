@@ -100,19 +100,6 @@
   .nav-btn:disabled { opacity: 0.3; cursor: default; }
   .date-info { font-size: 12px; color: #666; margin-left: 8px; }
 
-  .file-btn {
-    background: #e94560;
-    color: #fff;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: bold;
-    transition: background 0.2s;
-  }
-  .file-btn:hover { background: #c73650; }
-
   /* Auth screen */
   #authScreen {
     position: fixed; inset: 0; z-index: 9999;
@@ -296,8 +283,6 @@
     <input type="date" id="datePicker">
     <button class="nav-btn" id="nextDay" title="翌日">&#9654;</button>
     <span class="date-info" id="dateInfo"></span>
-    <label for="fileInput" class="file-btn" style="margin-left:12px">JSONを手動読込</label>
-    <input type="file" id="fileInput" accept=".json,.csv">
   </div>
   <div class="controls">
     <label>並び替え:</label>
@@ -443,27 +428,6 @@ document.getElementById('sortSelect').addEventListener('change', (e) => {
   renderAll();
 });
 document.getElementById('searchInput').addEventListener('input', () => renderAll());
-
-// --- File input (manual load) ---
-document.getElementById('fileInput').addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    let text = ev.target.result;
-    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-    try {
-      const parsed = JSON.parse(text);
-      historyData = parsed;
-    } catch {
-      // Try CSV fallback
-      historyData = { "manual": parseCSVToArray(text) };
-    }
-    initFromHistory();
-    document.getElementById('updatedAt').textContent = `読み込み: ${file.name} (${new Date().toLocaleString('ja-JP')})`;
-  };
-  reader.readAsText(file, 'utf-8');
-});
 
 // --- Auto-load ranking_history.json ---
 function loadData() {
