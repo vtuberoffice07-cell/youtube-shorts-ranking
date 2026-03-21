@@ -23,13 +23,16 @@ if not API_KEY or API_KEY == "YOUR_API_KEY_HERE":
 youtube = build("youtube", "v3", developerKey=API_KEY)
 
 # --- フィルタ条件 ---
-SEARCH_QUERIES = ["#vtuber", "新人Vtuber", "個人Vtuber", "Vtuber準備中"]
+SEARCH_QUERIES = [
+    "#vtuber", "新人Vtuber", "個人Vtuber", "Vtuber準備中",
+    "VTuber shorts", "個人勢VTuber", "#新人vtuber", "VTuberデビュー",
+]
 MIN_SUBSCRIBERS = 500
-MAX_SUBSCRIBERS = 50000
-VIEW_MULTIPLIER = 5  # 再生数 >= 登録者数 × この値
+MAX_SUBSCRIBERS = 100000
+VIEW_MULTIPLIER = 3  # 再生数 >= 登録者数 × この値
 MIN_COMMENTS = 10
-MIN_DURATION_SEC = 10
-MAX_DURATION_SEC = 50
+MIN_DURATION_SEC = 5
+MAX_DURATION_SEC = 60
 SEARCH_DAYS = 3  # 検索対象日数
 DAYS_PER_CHUNK = 1  # 何日分を1回のAPI呼び出しでまとめるか（クォータ節約）
 MAX_RESULTS_PER_QUERY = 50  # 各クエリ×期間あたりの最大取得数
