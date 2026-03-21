@@ -8,6 +8,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: 'Segoe UI', 'Yu Gothic UI', 'Meiryo', sans-serif;
+    overflow: hidden;
     background: #0f0f1a;
     color: #e0e0e0;
     min-height: 100vh;
@@ -111,6 +112,39 @@
     transition: background 0.2s;
   }
   .file-btn:hover { background: #c73650; }
+
+  /* Auth screen */
+  #authScreen {
+    position: fixed; inset: 0; z-index: 9999;
+    background: #0f0f1a;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #authScreen.hidden { display: none; }
+  .auth-box {
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 48px 40px;
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+  }
+  .auth-box h2 { color: #fff; margin-bottom: 8px; font-size: 22px; }
+  .auth-box p { color: #888; font-size: 13px; margin-bottom: 24px; }
+  .auth-box input[type="password"] {
+    width: 100%; padding: 12px 16px; border-radius: 6px;
+    border: 1px solid #444; background: #0f0f1a; color: #e0e0e0;
+    font-size: 16px; margin-bottom: 16px; text-align: center;
+  }
+  .auth-box input[type="password"]:focus { outline: none; border-color: #e94560; }
+  .auth-box button {
+    background: #e94560; color: #fff; border: none;
+    padding: 12px 40px; border-radius: 6px; font-size: 16px;
+    font-weight: bold; cursor: pointer; width: 100%; transition: background 0.2s;
+  }
+  .auth-box button:hover { background: #c73650; }
+  .auth-error { color: #e94560; font-size: 13px; margin-top: 12px; display: none; }
+  body.authed { overflow: auto; }
 
   /* Stats */
   .stats {
@@ -234,6 +268,17 @@
 </head>
 <body>
 
+<div id="authScreen">
+  <div class="auth-box">
+    <h2>VTuber Shorts Ranking</h2>
+    <p>閲覧にはパスワードが必要です</p>
+    <input type="password" id="authPassword" placeholder="パスワードを入力" autofocus>
+    <button id="authSubmit">ログイン</button>
+    <div class="auth-error" id="authError">パスワードが違います</div>
+  </div>
+</div>
+
+<div id="mainContent" style="display:none;">
 <div class="header">
   <h1>VTuber Shorts バズランキング</h1>
   <div class="subtitle">登録者 500〜50,000人 / 再生数≧登録者×5 / コメント≧10 / 10〜50秒</div>
@@ -305,6 +350,46 @@
 </div>
 
 <div class="updated" id="updatedAt"></div>
+</div><!-- /mainContent -->
+
+<script>
+// --- Password auth ---
+const PASS_HASH = '8a9b2f1e6c3d7a4b'; // obfuscated check
+function checkPass(input) {
+  // Simple hash to avoid plaintext in source
+  let h = 0;
+  for (let i = 0; i < input.length; i++) {
+    h = ((h << 5) - h + input.charCodeAt(i)) | 0;
+  }
+  return h === -648609971;
+}
+
+function tryLogin() {
+  const pw = document.getElementById('authPassword').value;
+  if (checkPass(pw)) {
+    document.getElementById('authScreen').classList.add('hidden');
+    document.getElementById('mainContent').style.display = '';
+    document.body.classList.add('authed');
+    sessionStorage.setItem('vtr_auth', '1');
+    loadData();
+  } else {
+    document.getElementById('authError').style.display = 'block';
+    document.getElementById('authPassword').value = '';
+  }
+}
+
+document.getElementById('authSubmit').addEventListener('click', tryLogin);
+document.getElementById('authPassword').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') tryLogin();
+});
+
+// Check if already authed in this session
+if (sessionStorage.getItem('vtr_auth') === '1') {
+  document.getElementById('authScreen').classList.add('hidden');
+  document.getElementById('mainContent').style.display = '';
+  document.body.classList.add('authed');
+}
+</script>
 
 <script>
 let historyData = {};
@@ -381,16 +466,20 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
 });
 
 // --- Auto-load ranking_history.json ---
-fetch('ranking_history.json')
-  .then(r => { if (!r.ok) throw new Error(); return r.text(); })
-  .then(text => {
-    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-    historyData = JSON.parse(text);
-    initFromHistory();
-    document.getElementById('updatedAt').textContent =
-      `自動読み込み: ranking_history.json (${new Date().toLocaleString('ja-JP')})`;
-  })
-  .catch(() => {});
+function loadData() {
+  fetch('ranking_history.json')
+    .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+    .then(text => {
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      historyData = JSON.parse(text);
+      initFromHistory();
+      document.getElementById('updatedAt').textContent =
+        `自動読み込み: ranking_history.json (${new Date().toLocaleString('ja-JP')})`;
+    })
+    .catch(() => {});
+}
+// Auto-load if already authed
+if (sessionStorage.getItem('vtr_auth') === '1') loadData();
 
 function initFromHistory() {
   dates = Object.keys(historyData).sort();
