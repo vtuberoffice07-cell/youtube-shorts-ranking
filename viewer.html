@@ -383,7 +383,8 @@
 </div>
 
 <div class="tabs">
-  <button class="tab-btn active" data-tab="daily">日別ランキング</button>
+  <button class="tab-btn active" data-tab="daily">YouTube Shorts</button>
+  <button class="tab-btn" data-tab="tiktok">TikTok</button>
   <button class="tab-btn" data-tab="trends">チャンネル推移</button>
 </div>
 
@@ -440,6 +441,59 @@
   </div>
 </div>
 
+<!-- TikTok view -->
+<div id="tiktokView" style="display:none;">
+  <div class="date-nav">
+    <button class="nav-btn" id="ttPrevDay" title="前日">&#9664;</button>
+    <input type="date" id="ttDatePicker">
+    <button class="nav-btn" id="ttNextDay" title="翌日">&#9654;</button>
+    <span class="date-info" id="ttDateInfo"></span>
+  </div>
+  <div class="controls">
+    <label>並び替え:</label>
+    <select id="ttSortSelect">
+      <option value="growth_rate-desc">バズ倍率（高い順）</option>
+      <option value="views-desc">再生数（多い順）</option>
+      <option value="likes-desc">いいね数（多い順）</option>
+      <option value="comments-desc">コメント数（多い順）</option>
+      <option value="followers-asc">フォロワー数（少ない順）</option>
+    </select>
+    <label>検索:</label>
+    <input type="text" id="ttSearchInput" placeholder="説明文・アカウント名...">
+    <div class="view-toggle">
+      <button class="view-toggle-btn active" id="ttViewTable" title="テーブル表示">&#9776;</button>
+      <button class="view-toggle-btn" id="ttViewGrid" title="グリッド表示">&#9638;</button>
+    </div>
+  </div>
+  <div class="stats" id="ttStatsArea"></div>
+  <div id="ttGridContainer" class="grid-wrap" style="display:none;"></div>
+  <div class="table-wrap" id="ttTableContainer">
+    <div id="ttEmptyState" class="empty-state">
+      <p>tiktok_history.json を読み込み中...</p>
+      <p style="font-size:14px;color:#555;">tiktok_ranking.py を実行するとデータが生成されます</p>
+    </div>
+    <table id="ttRankingTable" style="display:none;">
+      <thead>
+        <tr>
+          <th data-ttcol="rank">順位</th>
+          <th>サムネイル</th>
+          <th data-ttcol="title">動画説明</th>
+          <th data-ttcol="author">アカウント名</th>
+          <th data-ttcol="followers">フォロワー数</th>
+          <th data-ttcol="views">再生数</th>
+          <th>バズ倍率グラフ</th>
+          <th data-ttcol="growth_rate">バズ倍率</th>
+          <th data-ttcol="likes">いいね</th>
+          <th data-ttcol="comments">コメント数</th>
+          <th data-ttcol="published">投稿日</th>
+          <th>リンク</th>
+        </tr>
+      </thead>
+      <tbody id="ttTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
 <!-- Trends view -->
 <div id="trendsView" style="display:none;">
   <div class="controls">
@@ -473,6 +527,7 @@ function tryLogin() {
     document.body.classList.add('authed');
     sessionStorage.setItem('vtr_auth', '1');
     loadData();
+    loadTikTokData();
   } else {
     document.getElementById('authError').style.display = 'block';
     document.getElementById('authPassword').value = '';
@@ -521,7 +576,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     const tab = btn.dataset.tab;
     document.getElementById('dailyView').style.display = tab === 'daily' ? '' : 'none';
+    document.getElementById('tiktokView').style.display = tab === 'tiktok' ? '' : 'none';
     document.getElementById('trendsView').style.display = tab === 'trends' ? '' : 'none';
+    if (tab === 'tiktok') ttRenderAll();
     if (tab === 'trends') renderTrends();
   });
 });
@@ -859,7 +916,7 @@ function esc(str) {
   return (str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// Column header sort
+// Column header sort (YouTube)
 document.querySelectorAll('thead th[data-col]').forEach(th => {
   th.addEventListener('click', () => {
     const col = th.dataset.col;
@@ -869,6 +926,212 @@ document.querySelectorAll('thead th[data-col]').forEach(th => {
     const val = `${col}-${currentSort.desc ? 'desc' : 'asc'}`;
     for (const opt of sel.options) { if (opt.value === val) { sel.value = val; break; } }
     renderAll();
+  });
+});
+
+// ================================================================
+// TikTok Ranking Logic
+// ================================================================
+let ttHistoryData = {};
+let ttDates = [];
+let ttCurrentDate = '';
+let ttAllData = [];
+let ttCurrentSort = { key: 'growth_rate', desc: true };
+let ttCurrentView = 'table';
+
+// View toggle
+document.getElementById('ttViewTable').addEventListener('click', () => {
+  ttCurrentView = 'table';
+  document.getElementById('ttViewTable').classList.add('active');
+  document.getElementById('ttViewGrid').classList.remove('active');
+  ttRenderAll();
+});
+document.getElementById('ttViewGrid').addEventListener('click', () => {
+  ttCurrentView = 'grid';
+  document.getElementById('ttViewGrid').classList.add('active');
+  document.getElementById('ttViewTable').classList.remove('active');
+  ttRenderAll();
+});
+
+// Date nav
+document.getElementById('ttDatePicker').addEventListener('change', (e) => ttLoadDate(e.target.value));
+document.getElementById('ttPrevDay').addEventListener('click', () => ttNavigateDate(-1));
+document.getElementById('ttNextDay').addEventListener('click', () => ttNavigateDate(1));
+
+function ttNavigateDate(offset) {
+  const idx = ttDates.indexOf(ttCurrentDate);
+  const newIdx = idx + offset;
+  if (newIdx >= 0 && newIdx < ttDates.length) ttLoadDate(ttDates[newIdx]);
+}
+
+function ttLoadDate(dateStr) {
+  if (!ttHistoryData[dateStr]) return;
+  ttCurrentDate = dateStr;
+  document.getElementById('ttDatePicker').value = dateStr;
+  ttAllData = ttHistoryData[dateStr];
+  const idx = ttDates.indexOf(dateStr);
+  document.getElementById('ttPrevDay').disabled = idx <= 0;
+  document.getElementById('ttNextDay').disabled = idx >= ttDates.length - 1;
+  document.getElementById('ttDateInfo').textContent = `${idx + 1} / ${ttDates.length} 日分のデータ`;
+  ttRenderAll();
+}
+
+// Sort & search
+document.getElementById('ttSortSelect').addEventListener('change', (e) => {
+  const [key, dir] = e.target.value.split('-');
+  ttCurrentSort = { key, desc: dir === 'desc' };
+  ttRenderAll();
+});
+document.getElementById('ttSearchInput').addEventListener('input', () => ttRenderAll());
+
+// Auto-load tiktok_history.json
+function loadTikTokData() {
+  fetch('tiktok_history.json')
+    .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+    .then(text => {
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      ttHistoryData = JSON.parse(text);
+      ttDates = Object.keys(ttHistoryData).sort();
+      if (ttDates.length > 0) {
+        const picker = document.getElementById('ttDatePicker');
+        picker.min = ttDates[0];
+        picker.max = ttDates[ttDates.length - 1];
+        ttLoadDate(ttDates[ttDates.length - 1]);
+      }
+    })
+    .catch(() => {});
+}
+if (sessionStorage.getItem('vtr_auth') === '1') loadTikTokData();
+
+// Render
+function ttRenderAll() {
+  const query = document.getElementById('ttSearchInput').value.toLowerCase();
+  let data = ttAllData.filter(d =>
+    !query || (d.title||'').toLowerCase().includes(query) || (d.author||'').toLowerCase().includes(query)
+  );
+  data.sort((a, b) => {
+    let va = a[ttCurrentSort.key], vb = b[ttCurrentSort.key];
+    if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+    if (va < vb) return ttCurrentSort.desc ? 1 : -1;
+    if (va > vb) return ttCurrentSort.desc ? -1 : 1;
+    return 0;
+  });
+
+  // Stats
+  const statsArea = document.getElementById('ttStatsArea');
+  if (data.length > 0) {
+    const totalViews = data.reduce((s, d) => s + (d.views||0), 0);
+    const avgGrowth = (data.reduce((s, d) => s + (d.growth_rate||0), 0) / data.length).toFixed(1);
+    const maxGrowth = Math.max(...data.map(d => d.growth_rate||0));
+    statsArea.innerHTML = `
+      <div class="stat-card"><div class="value">${data.length}</div><div class="label">ランクイン動画数</div></div>
+      <div class="stat-card"><div class="value">${totalViews.toLocaleString()}</div><div class="label">合計再生数</div></div>
+      <div class="stat-card"><div class="value">${avgGrowth}x</div><div class="label">平均バズ倍率</div></div>
+      <div class="stat-card"><div class="value">${maxGrowth}x</div><div class="label">最高バズ倍率</div></div>
+    `;
+  } else { statsArea.innerHTML = ''; }
+
+  const tableContainer = document.getElementById('ttTableContainer');
+  const gridContainer = document.getElementById('ttGridContainer');
+
+  if (ttCurrentView === 'grid') {
+    tableContainer.style.display = 'none';
+    gridContainer.style.display = '';
+    ttRenderGrid(data);
+  } else {
+    tableContainer.style.display = '';
+    gridContainer.style.display = 'none';
+    ttRenderTable(data);
+  }
+}
+
+function ttRenderTable(data) {
+  const table = document.getElementById('ttRankingTable');
+  const empty = document.getElementById('ttEmptyState');
+  const tbody = document.getElementById('ttTableBody');
+
+  if (data.length === 0 && ttAllData.length === 0 && ttDates.length === 0) {
+    table.style.display = 'none'; empty.style.display = 'block'; return;
+  }
+  table.style.display = 'table'; empty.style.display = 'none';
+
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#666;padding:40px;">この日のデータには検索結果がありません</td></tr>';
+    return;
+  }
+
+  const maxGrowth = Math.max(...data.map(d => d.growth_rate||0), 1);
+
+  tbody.innerHTML = data.map((d, i) => {
+    const rank = i + 1;
+    const rankClass = rank <= 3 ? ` rank-${rank}` : '';
+    const growthClass = (d.growth_rate||0) >= 15 ? 'growth-high' : (d.growth_rate||0) >= 8 ? 'growth-mid' : 'growth-low';
+    const barWidth = ((d.growth_rate||0) / maxGrowth * 100).toFixed(1);
+    const linkHtml = d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" class="link-btn" style="background:#00f2ea;">再生</a>` : '';
+    const coverHtml = d.cover
+      ? `<a href="${esc(d.url)}" target="_blank" rel="noopener"><img src="${esc(d.cover)}" alt="" loading="lazy" style="width:72px;height:96px;object-fit:cover;border-radius:6px;"></a>`
+      : '';
+
+    return `<tr>
+      <td class="rank${rankClass}">${rank}</td>
+      <td class="thumb-cell">${coverHtml}</td>
+      <td class="title-cell">${esc(d.title)}</td>
+      <td class="channel-cell" title="${esc(d.author||'')}">${esc(d.author||'')}</td>
+      <td class="num">${(d.followers||0).toLocaleString()}</td>
+      <td class="num">${(d.views||0).toLocaleString()}</td>
+      <td class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${barWidth}%;background:linear-gradient(90deg,#00f2ea,#ff0050);"></div></div></td>
+      <td class="growth ${growthClass}">${d.growth_rate||0}x</td>
+      <td class="num">${(d.likes||0).toLocaleString()}</td>
+      <td class="num">${(d.comments||0).toLocaleString()}</td>
+      <td>${d.published || ''}</td>
+      <td>${linkHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+function ttRenderGrid(data) {
+  const gridContainer = document.getElementById('ttGridContainer');
+
+  if (data.length === 0) {
+    gridContainer.innerHTML = '<div class="empty-state"><p>この日のデータには検索結果がありません</p></div>';
+    return;
+  }
+
+  gridContainer.innerHTML = data.map((d, i) => {
+    const rank = i + 1;
+    const rankColor = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+    const link = d.url ? esc(d.url) : '#';
+    const coverSrc = d.cover ? esc(d.cover) : '';
+
+    return `<a href="${link}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+      <div class="grid-card">
+        <div class="grid-card-rank ${rankColor}">${rank}</div>
+        <div class="grid-card-growth" style="background:rgba(255,0,80,0.9);">${d.growth_rate||0}x</div>
+        ${coverSrc ? `<img class="grid-card-thumb" src="${coverSrc}" alt="" loading="lazy">` : '<div class="grid-card-thumb" style="background:#222;"></div>'}
+        <div class="grid-card-body">
+          <div class="grid-card-title">${esc(d.title)}</div>
+          <div class="grid-card-channel">${esc(d.author||'')}</div>
+          <div class="grid-card-stats">
+            <span><span class="val">${formatNum(d.views||0)}</span> 再生</span>
+            <span><span class="val">${formatNum(d.likes||0)}</span> いいね</span>
+            <span><span class="val">${d.comments||0}</span> コメ</span>
+          </div>
+        </div>
+      </div>
+    </a>`;
+  }).join('');
+}
+
+// Column header sort (TikTok)
+document.querySelectorAll('thead th[data-ttcol]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.ttcol;
+    if (ttCurrentSort.key === col) ttCurrentSort.desc = !ttCurrentSort.desc;
+    else ttCurrentSort = { key: col, desc: true };
+    const sel = document.getElementById('ttSortSelect');
+    const val = `${col}-${ttCurrentSort.desc ? 'desc' : 'asc'}`;
+    for (const opt of sel.options) { if (opt.value === val) { sel.value = val; break; } }
+    ttRenderAll();
   });
 });
 </script>
