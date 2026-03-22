@@ -251,17 +251,31 @@
   }
   .expand-icon.open { transform: rotate(90deg); }
 
-  /* Grid analysis tooltip */
+  /* Grid analysis - always visible */
   .grid-card-analysis {
     padding: 10px 12px;
-    border-top: 1px solid #333;
+    border-top: 1px solid #2a2a3e;
+    background: #13132a;
     font-size: 11px;
-    line-height: 1.6;
-    color: #aaa;
-    display: none;
+    line-height: 1.7;
+    color: #bbb;
   }
-  .grid-card:hover .grid-card-analysis { display: block; }
-  .grid-analysis-label { color: #e94560; font-weight: bold; }
+  .grid-analysis-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .grid-analysis-item:last-child { margin-bottom: 0; }
+  .grid-analysis-icon { flex-shrink: 0; font-size: 12px; margin-top: 1px; }
+  .grid-analysis-text { flex: 1; }
+  .grid-analysis-quote {
+    color: #f9844a;
+    font-style: italic;
+    font-size: 10px;
+    margin-top: 2px;
+    padding-left: 18px;
+  }
 
   .empty-state { text-align: center; padding: 80px 24px; color: #666; }
   .empty-state p { font-size: 18px; margin-bottom: 16px; }
@@ -294,7 +308,7 @@
   /* Grid view */
   .grid-wrap {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     gap: 16px;
     padding: 0 24px 40px;
   }
@@ -314,7 +328,7 @@
   }
   .grid-card-thumb {
     width: 100%;
-    aspect-ratio: 9 / 16;
+    aspect-ratio: 9 / 12;
     object-fit: cover;
     display: block;
     background: #111;
@@ -357,26 +371,35 @@
     line-height: 1.4;
     margin-bottom: 6px;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
   .grid-card-channel {
-    font-size: 11px;
+    font-size: 12px;
     color: #aaa;
     margin-bottom: 8px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .grid-card-channel::before {
+    content: '&#x1F3AC; ';
+  }
   .grid-card-stats {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
     font-size: 11px;
     color: #888;
+    text-align: center;
+    background: #0f0f1a;
+    border-radius: 6px;
+    padding: 6px 4px;
   }
-  .grid-card-stats span { display: flex; align-items: center; gap: 3px; }
-  .grid-card-stats .val { color: #e0e0e0; font-weight: bold; }
+  .grid-card-stats .stat-item { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .grid-card-stats .val { color: #e0e0e0; font-weight: bold; font-size: 13px; }
+  .grid-card-stats .stat-label { font-size: 9px; color: #666; }
 
   /* Trends view */
   .trends-wrap { padding: 0 24px 40px; }
@@ -468,13 +491,13 @@
     <label>検索:</label>
     <input type="text" id="searchInput" placeholder="タイトル・チャンネル名...">
     <div class="view-toggle">
-      <button class="view-toggle-btn active" id="viewTable" title="テーブル表示">&#9776;</button>
-      <button class="view-toggle-btn" id="viewGrid" title="グリッド表示">&#9638;</button>
+      <button class="view-toggle-btn" id="viewTable" title="テーブル表示">&#9776;</button>
+      <button class="view-toggle-btn active" id="viewGrid" title="グリッド表示">&#9638;</button>
     </div>
   </div>
   <div class="stats" id="statsArea"></div>
-  <div id="gridContainer" class="grid-wrap" style="display:none;"></div>
-  <div class="table-wrap" id="tableContainer">
+  <div id="gridContainer" class="grid-wrap"></div>
+  <div class="table-wrap" id="tableContainer" style="display:none;">
     <div id="emptyState" class="empty-state">
       <p>ranking_history.json を読み込んでください</p>
       <p style="font-size:14px;color:#555;">python main.py を実行すると自動生成されます</p>
@@ -521,13 +544,13 @@
     <label>検索:</label>
     <input type="text" id="ttSearchInput" placeholder="説明文・アカウント名...">
     <div class="view-toggle">
-      <button class="view-toggle-btn active" id="ttViewTable" title="テーブル表示">&#9776;</button>
-      <button class="view-toggle-btn" id="ttViewGrid" title="グリッド表示">&#9638;</button>
+      <button class="view-toggle-btn" id="ttViewTable" title="テーブル表示">&#9776;</button>
+      <button class="view-toggle-btn active" id="ttViewGrid" title="グリッド表示">&#9638;</button>
     </div>
   </div>
   <div class="stats" id="ttStatsArea"></div>
-  <div id="ttGridContainer" class="grid-wrap" style="display:none;"></div>
-  <div class="table-wrap" id="ttTableContainer">
+  <div id="ttGridContainer" class="grid-wrap"></div>
+  <div class="table-wrap" id="ttTableContainer" style="display:none;">
     <div id="ttEmptyState" class="empty-state">
       <p>tiktok_history.json を読み込み中...</p>
       <p style="font-size:14px;color:#555;">tiktok_ranking.py を実行するとデータが生成されます</p>
@@ -613,7 +636,7 @@ let dates = [];
 let currentDate = '';
 let allData = [];
 let currentSort = { key: 'growth_rate', desc: true };
-let currentView = 'table'; // 'table' or 'grid'
+let currentView = 'grid'; // 'table' or 'grid' — グリッドをデフォルト
 
 // --- View toggle ---
 document.getElementById('viewTable').addEventListener('click', () => {
@@ -904,21 +927,39 @@ function renderGrid(data) {
           <div class="grid-card-title">${esc(d.title)}</div>
           <div class="grid-card-channel">${esc(d.channel)}</div>
           <div class="grid-card-stats">
-            <span><span class="val">${formatNum(d.views)}</span> 再生</span>
-            <span><span class="val">${formatNum(d.subscribers)}</span> 登録</span>
-            <span><span class="val">${d.comments}</span> コメ</span>
+            <div class="stat-item"><span class="val">${formatNum(d.views)}</span><span class="stat-label">再生数</span></div>
+            <div class="stat-item"><span class="val">${formatNum(d.subscribers)}</span><span class="stat-label">登録者</span></div>
+            <div class="stat-item"><span class="val">${d.comments}</span><span class="stat-label">コメント</span></div>
           </div>
         </div>
-        ${d.analysis ? `<div class="grid-card-analysis"><span class="grid-analysis-label">分析:</span> ${getFirstAnalysisLine(d.analysis)}</div>` : ''}
+        ${d.analysis ? formatGridAnalysis(d.analysis) : ''}
       </div>
     </a>`;
   }).join('');
 }
 
-function getFirstAnalysisLine(text) {
+function formatGridAnalysis(text) {
   if (!text) return '';
-  const first = text.split('\n')[0] || '';
-  return esc(first.replace(/【[^】]+】/, '').trim()).substring(0, 80);
+  const lines = text.split('\n');
+  let html = '<div class="grid-card-analysis">';
+  for (const line of lines) {
+    const match = line.match(/【([^】]+)】(.*)/);
+    if (!match) continue;
+    const label = match[1];
+    const content = match[2].trim();
+    if (label === 'バズ要因') {
+      html += `<div class="grid-analysis-item"><span class="grid-analysis-icon">&#128293;</span><span class="grid-analysis-text">${esc(content)}</span></div>`;
+    } else if (label === '注目度') {
+      html += `<div class="grid-analysis-item"><span class="grid-analysis-icon">&#128200;</span><span class="grid-analysis-text">${esc(content)}</span></div>`;
+    } else if (label === '人気コメント') {
+      const quoteMatch = content.match(/「([^」]+)」(.*)/);
+      if (quoteMatch) {
+        html += `<div class="grid-analysis-quote">&#128172; "${esc(quoteMatch[1].substring(0, 60))}" ${esc(quoteMatch[2])}</div>`;
+      }
+    }
+  }
+  html += '</div>';
+  return html;
 }
 
 function formatNum(n) {
@@ -1040,7 +1081,7 @@ let ttDates = [];
 let ttCurrentDate = '';
 let ttAllData = [];
 let ttCurrentSort = { key: 'growth_rate', desc: true };
-let ttCurrentView = 'table';
+let ttCurrentView = 'grid';
 
 // View toggle
 document.getElementById('ttViewTable').addEventListener('click', () => {
@@ -1215,9 +1256,9 @@ function ttRenderGrid(data) {
           <div class="grid-card-title">${esc(d.title)}</div>
           <div class="grid-card-channel">${esc(d.author||'')}</div>
           <div class="grid-card-stats">
-            <span><span class="val">${formatNum(d.views||0)}</span> 再生</span>
-            <span><span class="val">${formatNum(d.likes||0)}</span> いいね</span>
-            <span><span class="val">${d.comments||0}</span> コメ</span>
+            <div class="stat-item"><span class="val">${formatNum(d.views||0)}</span><span class="stat-label">再生数</span></div>
+            <div class="stat-item"><span class="val">${formatNum(d.likes||0)}</span><span class="stat-label">いいね</span></div>
+            <div class="stat-item"><span class="val">${d.comments||0}</span><span class="stat-label">コメント</span></div>
           </div>
         </div>
       </div>
