@@ -27,10 +27,15 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run YouTube ranking
+      - name: Run YouTube ranking (個人VTuber)
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: python main.py
+
+      - name: Run YouTube ranking (全体版)
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: python main_all.py
 
       - name: Run TikTok ranking
         env:
@@ -41,6 +46,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ranking_history.json ranking_output.csv tiktok_history.json tiktok_output.csv
+          git add ranking_history.json ranking_output.csv ranking_all_history.json ranking_all_output.csv tiktok_history.json tiktok_output.csv
           git diff --cached --quiet || git commit -m "ranking: $(date +%Y-%m-%d) のデータを追加"
           git push

@@ -668,6 +668,7 @@
 
 <div class="tabs">
   <button class="tab-btn active" data-tab="daily">YouTube Shorts</button>
+  <button class="tab-btn" data-tab="allvtuber">全体ランキング</button>
   <button class="tab-btn" data-tab="tiktok">TikTok</button>
   <button class="tab-btn" data-tab="trends">チャンネル推移</button>
   <button class="tab-btn" data-tab="hints">企画ヒント</button>
@@ -722,6 +723,59 @@
         </tr>
       </thead>
       <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 全体ランキング view -->
+<div id="allVtuberView" style="display:none;">
+  <div class="date-nav">
+    <button class="nav-btn" id="allPrevDay" title="前日">&#9664;</button>
+    <input type="date" id="allDatePicker">
+    <button class="nav-btn" id="allNextDay" title="翌日">&#9654;</button>
+    <span class="date-info" id="allDateInfo"></span>
+  </div>
+  <div class="controls">
+    <label>並び替え:</label>
+    <select id="allSortSelect">
+      <option value="growth_rate-desc">伸び率（高い順）</option>
+      <option value="views-desc">再生数（多い順）</option>
+      <option value="comments-desc">コメント数（多い順）</option>
+      <option value="subscribers-asc">登録者数（少ない順）</option>
+      <option value="published-desc">投稿日（新しい順）</option>
+    </select>
+    <label>検索:</label>
+    <input type="text" id="allSearchInput" placeholder="タイトル・チャンネル名...">
+    <div class="view-toggle">
+      <button class="view-toggle-btn" id="allViewTable" title="テーブル表示">&#9776;</button>
+      <button class="view-toggle-btn active" id="allViewGrid" title="グリッド表示">&#9638;</button>
+    </div>
+  </div>
+  <p style="text-align:center;color:#f9844a;font-size:13px;margin-bottom:8px;">※ 事務所系VTuber（ホロライブ・にじさんじ・ぶいすぽ等）も含むランキング</p>
+  <div class="stats" id="allStatsArea"></div>
+  <div id="allGridContainer" class="grid-wrap"></div>
+  <div class="table-wrap" id="allTableContainer" style="display:none;">
+    <div id="allEmptyState" class="empty-state">
+      <p>ranking_all_history.json を読み込み中...</p>
+    </div>
+    <table id="allRankingTable" style="display:none;">
+      <thead>
+        <tr>
+          <th>順位</th>
+          <th>サムネイル</th>
+          <th>タイトル</th>
+          <th>チャンネル名</th>
+          <th>登録者数</th>
+          <th>再生数</th>
+          <th>伸び率グラフ</th>
+          <th>伸び率</th>
+          <th>コメント数</th>
+          <th>秒数</th>
+          <th>投稿日</th>
+          <th>リンク</th>
+        </tr>
+      </thead>
+      <tbody id="allTableBody"></tbody>
     </table>
   </div>
 </div>
@@ -819,6 +873,7 @@ function tryLogin() {
     document.body.classList.add('authed');
     sessionStorage.setItem('vtr_auth', '1');
     loadData();
+    loadAllVData();
     loadTikTokData();
   } else {
     document.getElementById('authError').style.display = 'block';
@@ -868,9 +923,11 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     const tab = btn.dataset.tab;
     document.getElementById('dailyView').style.display = tab === 'daily' ? '' : 'none';
+    document.getElementById('allVtuberView').style.display = tab === 'allvtuber' ? '' : 'none';
     document.getElementById('tiktokView').style.display = tab === 'tiktok' ? '' : 'none';
     document.getElementById('trendsView').style.display = tab === 'trends' ? '' : 'none';
     document.getElementById('hintsView').style.display = tab === 'hints' ? '' : 'none';
+    if (tab === 'allvtuber') allRenderAll();
     if (tab === 'tiktok') ttRenderAll();
     if (tab === 'trends') renderTrends();
     if (tab === 'hints') renderHints();
@@ -1283,6 +1340,184 @@ document.querySelectorAll('thead th[data-col]').forEach(th => {
     renderAll();
   });
 });
+
+// ================================================================
+// 全体ランキング（事務所系含む） Logic
+// ================================================================
+let allVHistoryData = {};
+let allVDates = [];
+let allVCurrentDate = '';
+let allVAllData = [];
+let allVCurrentSort = { key: 'growth_rate', desc: true };
+let allVCurrentView = 'grid';
+
+// Date navigation
+document.getElementById('allDatePicker').addEventListener('change', (e) => { allVLoadDate(e.target.value); });
+document.getElementById('allPrevDay').addEventListener('click', () => {
+  const idx = allVDates.indexOf(allVCurrentDate);
+  if (idx > 0) allVLoadDate(allVDates[idx - 1]);
+});
+document.getElementById('allNextDay').addEventListener('click', () => {
+  const idx = allVDates.indexOf(allVCurrentDate);
+  if (idx < allVDates.length - 1) allVLoadDate(allVDates[idx + 1]);
+});
+
+function allVLoadDate(dateStr) {
+  if (!allVHistoryData[dateStr]) return;
+  allVCurrentDate = dateStr;
+  document.getElementById('allDatePicker').value = dateStr;
+  allVAllData = allVHistoryData[dateStr];
+  document.getElementById('allDateInfo').textContent = allVAllData.length + '件 / ' + allVDates.length + '日分';
+  allRenderAll();
+}
+
+// Sort
+document.getElementById('allSortSelect').addEventListener('change', (e) => {
+  const [key, dir] = e.target.value.split('-');
+  allVCurrentSort = { key, desc: dir === 'desc' };
+  allRenderAll();
+});
+
+// View toggle
+document.getElementById('allViewTable').addEventListener('click', () => {
+  allVCurrentView = 'table';
+  document.getElementById('allViewTable').classList.add('active');
+  document.getElementById('allViewGrid').classList.remove('active');
+  allRenderAll();
+});
+document.getElementById('allViewGrid').addEventListener('click', () => {
+  allVCurrentView = 'grid';
+  document.getElementById('allViewGrid').classList.add('active');
+  document.getElementById('allViewTable').classList.remove('active');
+  allRenderAll();
+});
+document.getElementById('allSearchInput').addEventListener('input', () => allRenderAll());
+
+// Auto-load ranking_all_history.json
+function loadAllVData() {
+  fetch('ranking_all_history.json')
+    .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+    .then(text => {
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      allVHistoryData = JSON.parse(text);
+      allVDates = Object.keys(allVHistoryData).sort();
+      if (allVDates.length > 0) {
+        const picker = document.getElementById('allDatePicker');
+        picker.min = allVDates[0];
+        picker.max = allVDates[allVDates.length - 1];
+        allVLoadDate(allVDates[allVDates.length - 1]);
+      }
+    })
+    .catch(() => {});
+}
+if (sessionStorage.getItem('vtr_auth') === '1') loadAllVData();
+
+// Render
+function allRenderAll() {
+  const query = document.getElementById('allSearchInput').value.toLowerCase();
+  let data = allVAllData.filter(d =>
+    !query || (d.title||'').toLowerCase().includes(query) || (d.channel||'').toLowerCase().includes(query)
+  );
+  data.sort((a, b) => {
+    let va = a[allVCurrentSort.key], vb = b[allVCurrentSort.key];
+    if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+    if (va < vb) return allVCurrentSort.desc ? 1 : -1;
+    if (va > vb) return allVCurrentSort.desc ? -1 : 1;
+    return 0;
+  });
+
+  const statsArea = document.getElementById('allStatsArea');
+  if (data.length > 0) {
+    const totalViews = data.reduce((s, d) => s + (d.views||0), 0);
+    const avgGrowth = (data.reduce((s, d) => s + (d.growth_rate||0), 0) / data.length).toFixed(1);
+    const maxGrowth = Math.max(...data.map(d => d.growth_rate||0));
+    statsArea.innerHTML = `
+      <div class="stat-card"><div class="value">${data.length}</div><div class="label">ランクイン動画数</div></div>
+      <div class="stat-card"><div class="value">${totalViews.toLocaleString()}</div><div class="label">合計再生数</div></div>
+      <div class="stat-card"><div class="value">${avgGrowth}x</div><div class="label">平均伸び率</div></div>
+      <div class="stat-card"><div class="value">${maxGrowth}x</div><div class="label">最高伸び率</div></div>
+    `;
+  } else { statsArea.innerHTML = ''; }
+
+  const tableContainer = document.getElementById('allTableContainer');
+  const gridContainer = document.getElementById('allGridContainer');
+
+  if (allVCurrentView === 'grid') {
+    tableContainer.style.display = 'none';
+    gridContainer.style.display = '';
+    allRenderGrid(data);
+  } else {
+    tableContainer.style.display = '';
+    gridContainer.style.display = 'none';
+    allRenderTable(data);
+  }
+}
+
+function allRenderTable(data) {
+  const table = document.getElementById('allRankingTable');
+  const empty = document.getElementById('allEmptyState');
+  const tbody = document.getElementById('allTableBody');
+
+  if (data.length === 0 && allVAllData.length === 0 && allVDates.length === 0) {
+    table.style.display = 'none'; empty.style.display = 'block'; return;
+  }
+  table.style.display = 'table'; empty.style.display = 'none';
+
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#666;padding:40px;">この日のデータには検索結果がありません</td></tr>';
+    return;
+  }
+
+  const maxGrowth = Math.max(...data.map(d => d.growth_rate||0), 1);
+  tbody.innerHTML = data.map((d, i) => {
+    const vidMatch = (d.url||'').match(/shorts\/([a-zA-Z0-9_-]+)/);
+    const videoId = vidMatch ? vidMatch[1] : '';
+    const thumbSrc = videoId ? 'https://i.ytimg.com/vi/' + videoId + '/oar2.jpg' : '';
+    const barWidth = ((d.growth_rate||0) / maxGrowth * 100).toFixed(0);
+    const analysisHtml = d.analysis ? '<div class="analysis-cell"><div class="analysis-text">' + esc(d.analysis).replace(/\n/g,'<br>') + '</div></div>' : '';
+    return '<tr><td>' + (i+1) + '</td>' +
+      '<td>' + (thumbSrc ? '<img src="' + thumbSrc + '" class="thumb" onerror="this.style.display=\'none\'">' : '') + '</td>' +
+      '<td class="title-cell">' + esc(d.title) + analysisHtml + '</td>' +
+      '<td>' + esc(d.channel) + '</td>' +
+      '<td>' + (d.subscribers||0).toLocaleString() + '</td>' +
+      '<td>' + (d.views||0).toLocaleString() + '</td>' +
+      '<td><div class="growth-bar"><div class="growth-fill" style="width:' + barWidth + '%"></div></div></td>' +
+      '<td class="growth-cell">' + (d.growth_rate||0) + 'x</td>' +
+      '<td>' + (d.comments||0).toLocaleString() + '</td>' +
+      '<td>' + (d.duration||0) + 's</td>' +
+      '<td>' + esc(d.published||'') + '</td>' +
+      '<td>' + (d.url ? '<a href="' + esc(d.url) + '" target="_blank" rel="noopener" class="link-btn">見る</a>' : '') + '</td></tr>';
+  }).join('');
+}
+
+function allRenderGrid(data) {
+  const container = document.getElementById('allGridContainer');
+  if (data.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>この日のデータはありません</p></div>';
+    return;
+  }
+  const maxGrowth = Math.max(...data.map(d => d.growth_rate||0), 1);
+  container.innerHTML = data.map((d, i) => {
+    const vidMatch = (d.url||'').match(/shorts\/([a-zA-Z0-9_-]+)/);
+    const videoId = vidMatch ? vidMatch[1] : '';
+    const thumbSrc = videoId ? 'https://i.ytimg.com/vi/' + videoId + '/oar2.jpg' : '';
+    const barWidth = ((d.growth_rate||0) / maxGrowth * 100).toFixed(0);
+    const analysisHtml = d.analysis ? '<div class="grid-card-analysis"><div class="grid-analysis-text">' + esc(d.analysis).replace(/【バズ要因】/g,'<span class="grid-analysis-icon">🔥</span> <strong>バズ要因:</strong> ').replace(/【注目度】/g,'<span class="grid-analysis-icon">📈</span> <strong>注目度:</strong> ').replace(/【人気コメント】/g,'<span class="grid-analysis-icon">💬</span> <strong>人気コメント:</strong> ').replace(/\n/g,'<br>').replace(/「([^」]+)」/g,'<span class="grid-analysis-quote">「$1」</span>') + '</div></div>' : '';
+
+    return '<div class="grid-card">' +
+      '<div class="grid-rank">' + (i+1) + '</div>' +
+      '<a href="' + esc(d.url||'') + '" target="_blank" rel="noopener" class="grid-thumb-link">' +
+      (thumbSrc ? '<img src="' + thumbSrc + '" class="grid-thumb" onerror="this.src=\'\';this.alt=\'No thumb\'">' : '<div class="grid-thumb" style="background:#222;"></div>') +
+      '</a>' +
+      '<div class="grid-info">' +
+      '<div class="grid-title">' + esc(d.title) + '</div>' +
+      '<div class="grid-channel">' + esc(d.channel) + '</div>' +
+      '<div class="grid-stats-row"><span>👁 ' + (d.views||0).toLocaleString() + '</span><span>👤 ' + (d.subscribers||0).toLocaleString() + '</span><span>💬 ' + (d.comments||0).toLocaleString() + '</span></div>' +
+      '<div class="grid-growth"><div class="growth-bar"><div class="growth-fill" style="width:' + barWidth + '%"></div></div><span class="growth-cell">' + (d.growth_rate||0) + 'x</span></div>' +
+      analysisHtml +
+      '</div></div>';
+  }).join('');
+}
 
 // ================================================================
 // TikTok Ranking Logic
