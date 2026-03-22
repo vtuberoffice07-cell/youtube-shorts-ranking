@@ -253,28 +253,34 @@
 
   /* Grid analysis - always visible */
   .grid-card-analysis {
-    padding: 10px 12px;
-    border-top: 1px solid #2a2a3e;
-    background: #13132a;
-    font-size: 11px;
-    line-height: 1.7;
-    color: #bbb;
+    padding: 14px 14px;
+    border-top: 2px solid #e94560;
+    background: linear-gradient(180deg, #1a1a35 0%, #13132a 100%);
+    font-size: 14px;
+    line-height: 1.8;
+    color: #ddd;
   }
   .grid-analysis-item {
     display: flex;
     align-items: flex-start;
-    gap: 6px;
-    margin-bottom: 4px;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    background: rgba(233,69,96,0.08);
+    border-radius: 6px;
   }
   .grid-analysis-item:last-child { margin-bottom: 0; }
-  .grid-analysis-icon { flex-shrink: 0; font-size: 12px; margin-top: 1px; }
-  .grid-analysis-text { flex: 1; }
+  .grid-analysis-icon { flex-shrink: 0; font-size: 16px; margin-top: 2px; }
+  .grid-analysis-text { flex: 1; font-size: 13px; color: #e0e0e0; }
   .grid-analysis-quote {
     color: #f9844a;
     font-style: italic;
-    font-size: 10px;
-    margin-top: 2px;
-    padding-left: 18px;
+    font-size: 13px;
+    margin-top: 6px;
+    padding: 8px 10px;
+    background: rgba(249,132,74,0.1);
+    border-left: 3px solid #f9844a;
+    border-radius: 0 6px 6px 0;
   }
 
   .empty-state { text-align: center; padding: 80px 24px; color: #666; }
