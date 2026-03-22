@@ -451,6 +451,114 @@
   }
   .trend-stat-val { font-size: 18px; font-weight: bold; color: #e94560; }
   .trend-stat-lbl { font-size: 10px; color: #888; }
+
+  /* 企画ヒント tab */
+  .hints-wrap { padding: 0 24px 40px; max-width: 1100px; margin: 0 auto; }
+  .hint-section {
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .hint-section h3 {
+    font-size: 18px;
+    color: #fff;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .hint-section h3 .h-icon { font-size: 22px; }
+
+  /* バー チャート */
+  .h-bar-chart { display: flex; flex-direction: column; gap: 8px; }
+  .h-bar-row { display: flex; align-items: center; gap: 10px; }
+  .h-bar-label { min-width: 100px; font-size: 13px; color: #ccc; text-align: right; }
+  .h-bar-track { flex: 1; background: #222; border-radius: 4px; height: 28px; position: relative; overflow: hidden; }
+  .h-bar-fill {
+    height: 100%; border-radius: 4px;
+    background: linear-gradient(90deg, #e94560, #f9844a);
+    display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 8px; font-size: 12px; font-weight: bold; color: #fff;
+    transition: width 0.5s ease;
+    min-width: 30px;
+  }
+  .h-bar-count { min-width: 50px; font-size: 12px; color: #888; }
+
+  /* キーワードクラウド */
+  .keyword-cloud {
+    display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0;
+  }
+  .keyword-tag {
+    background: rgba(233,69,96,0.15);
+    border: 1px solid rgba(233,69,96,0.3);
+    color: #f0a0b0;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: bold;
+    transition: all 0.2s;
+  }
+  .keyword-tag.hot {
+    background: rgba(233,69,96,0.3);
+    border-color: #e94560;
+    color: #fff;
+    font-size: 16px;
+    padding: 8px 18px;
+  }
+  .keyword-tag.mid {
+    font-size: 14px;
+    background: rgba(233,69,96,0.2);
+  }
+
+  /* アクションカード */
+  .action-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+  .action-card {
+    background: linear-gradient(135deg, #16213e 0%, #1a1a2e 100%);
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 20px;
+    border-left: 4px solid #e94560;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .action-card:hover { transform: translateY(-2px); border-color: #f9844a; }
+  .action-card .ac-title {
+    font-size: 16px; font-weight: bold; color: #fff; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .action-card .ac-body { font-size: 13px; color: #bbb; line-height: 1.7; }
+  .action-card .ac-example {
+    margin-top: 10px; padding: 10px 12px;
+    background: rgba(233,69,96,0.1);
+    border-radius: 8px;
+    font-size: 12px; color: #ddd;
+    border-left: 3px solid #e94560;
+  }
+  .action-card .ac-example strong { color: #e94560; }
+
+  /* 数値ハイライト */
+  .num-highlight {
+    display: inline-block;
+    background: rgba(233,69,96,0.2);
+    color: #e94560;
+    font-weight: bold;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+  }
+
+  /* スコアメーター */
+  .score-meters { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .score-meter {
+    text-align: center;
+    background: #0f0f1a;
+    border-radius: 10px;
+    padding: 16px 12px;
+  }
+  .score-meter .sm-label { font-size: 12px; color: #888; margin-bottom: 8px; }
+  .score-meter .sm-value { font-size: 28px; font-weight: bold; color: #e94560; }
+  .score-meter .sm-sub { font-size: 11px; color: #666; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -475,6 +583,7 @@
   <button class="tab-btn active" data-tab="daily">YouTube Shorts</button>
   <button class="tab-btn" data-tab="tiktok">TikTok</button>
   <button class="tab-btn" data-tab="trends">チャンネル推移</button>
+  <button class="tab-btn" data-tab="hints">企画ヒント</button>
 </div>
 
 <!-- Daily view -->
@@ -593,6 +702,13 @@
   <div class="trends-wrap" id="trendsBody"></div>
 </div>
 
+<!-- 企画ヒント view -->
+<div id="hintsView" style="display:none;">
+  <div class="hints-wrap" id="hintsBody">
+    <div class="empty-state"><p>データを読み込み中...</p></div>
+  </div>
+</div>
+
 <div class="updated" id="updatedAt"></div>
 </div><!-- /mainContent -->
 
@@ -667,8 +783,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.getElementById('dailyView').style.display = tab === 'daily' ? '' : 'none';
     document.getElementById('tiktokView').style.display = tab === 'tiktok' ? '' : 'none';
     document.getElementById('trendsView').style.display = tab === 'trends' ? '' : 'none';
+    document.getElementById('hintsView').style.display = tab === 'hints' ? '' : 'none';
     if (tab === 'tiktok') ttRenderAll();
     if (tab === 'trends') renderTrends();
+    if (tab === 'hints') renderHints();
   });
 });
 
@@ -1284,6 +1402,305 @@ document.querySelectorAll('thead th[data-ttcol]').forEach(th => {
     ttRenderAll();
   });
 });
+
+// ================================================================
+// 企画ヒント（Content Strategy）
+// ================================================================
+function renderHints() {
+  // 全日付の全データを結合
+  const allItems = [];
+  for (const date of dates) {
+    for (const d of historyData[date]) {
+      allItems.push(d);
+    }
+  }
+  if (allItems.length === 0) {
+    document.getElementById('hintsBody').innerHTML = '<div class="empty-state"><p>データがまだありません。ランキングを実行してください。</p></div>';
+    return;
+  }
+
+  // --- 1. 最適な動画の長さ分析 ---
+  const durationBuckets = { '5-15秒': {count:0, totalGrowth:0}, '16-25秒': {count:0, totalGrowth:0}, '26-35秒': {count:0, totalGrowth:0}, '36-45秒': {count:0, totalGrowth:0}, '46-60秒': {count:0, totalGrowth:0} };
+  for (const d of allItems) {
+    const dur = d.duration || 0;
+    let key = '46-60秒';
+    if (dur <= 15) key = '5-15秒';
+    else if (dur <= 25) key = '16-25秒';
+    else if (dur <= 35) key = '26-35秒';
+    else if (dur <= 45) key = '36-45秒';
+    durationBuckets[key].count++;
+    durationBuckets[key].totalGrowth += (d.growth_rate || 0);
+  }
+  const maxDurCount = Math.max(...Object.values(durationBuckets).map(b => b.count), 1);
+  const bestDuration = Object.entries(durationBuckets).sort((a,b) => {
+    const avgA = a[1].count > 0 ? a[1].totalGrowth / a[1].count : 0;
+    const avgB = b[1].count > 0 ? b[1].totalGrowth / b[1].count : 0;
+    return avgB - avgA;
+  })[0];
+  const bestDurAvg = bestDuration[1].count > 0 ? (bestDuration[1].totalGrowth / bestDuration[1].count).toFixed(1) : 0;
+
+  // --- 2. タイトルキーワード分析 ---
+  const wordCount = {};
+  const stopWords = new Set(['#','の','は','が','を','に','で','と','も','た','だ','な','て','し','い','る','よ','か','ね','へ','から','まで','より','shorts','vtuber','新人vtuber','個人vtuber','short','ch']);
+  for (const d of allItems) {
+    const title = (d.title || '').replace(/#\S+/g, '');
+    // 2-6文字の日本語単語を抽出
+    const matches = title.match(/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]{2,8}/g) || [];
+    for (const w of matches) {
+      if (stopWords.has(w.toLowerCase())) continue;
+      wordCount[w] = (wordCount[w] || 0) + 1;
+    }
+  }
+  const topWords = Object.entries(wordCount).sort((a,b) => b[1] - a[1]).slice(0, 20);
+
+  // --- 3. バズ要因カテゴリ集計 ---
+  const buzzCategories = {};
+  for (const d of allItems) {
+    if (!d.analysis) continue;
+    const match = d.analysis.match(/【バズ要因】(.+?)(?:。|$)/);
+    if (match) {
+      const reasons = match[1].split('。');
+      for (const r of reasons) {
+        const clean = r.trim();
+        if (clean) buzzCategories[clean] = (buzzCategories[clean] || 0) + 1;
+      }
+    }
+  }
+  const topBuzzReasons = Object.entries(buzzCategories).sort((a,b) => b[1] - a[1]).slice(0, 6);
+  const maxBuzzCount = topBuzzReasons.length > 0 ? topBuzzReasons[0][1] : 1;
+
+  // --- 4. 登録者帯別の伸び率分析 ---
+  const subBands = {
+    '500-2,000': {count:0, totalGrowth:0, items:[]},
+    '2,001-5,000': {count:0, totalGrowth:0, items:[]},
+    '5,001-20,000': {count:0, totalGrowth:0, items:[]},
+    '20,001-100,000': {count:0, totalGrowth:0, items:[]},
+  };
+  for (const d of allItems) {
+    const s = d.subscribers || 0;
+    let key;
+    if (s <= 2000) key = '500-2,000';
+    else if (s <= 5000) key = '2,001-5,000';
+    else if (s <= 20000) key = '5,001-20,000';
+    else key = '20,001-100,000';
+    subBands[key].count++;
+    subBands[key].totalGrowth += (d.growth_rate || 0);
+    subBands[key].items.push(d);
+  }
+
+  // --- 5. 上位動画の共通パターン抽出 ---
+  const top10 = [...allItems].sort((a,b) => (b.growth_rate||0) - (a.growth_rate||0)).slice(0, 10);
+  const avgTopDuration = top10.length > 0 ? Math.round(top10.reduce((s,d) => s + (d.duration||0), 0) / top10.length) : 0;
+  const avgTopGrowth = top10.length > 0 ? (top10.reduce((s,d) => s + (d.growth_rate||0), 0) / top10.length).toFixed(1) : 0;
+  const avgTopSubs = top10.length > 0 ? Math.round(top10.reduce((s,d) => s + (d.subscribers||0), 0) / top10.length) : 0;
+
+  // --- レンダリング ---
+  const body = document.getElementById('hintsBody');
+  body.innerHTML = `
+    <!-- サマリー数値 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128202;</span> データ概要</h3>
+      <div class="score-meters">
+        <div class="score-meter">
+          <div class="sm-label">分析動画数</div>
+          <div class="sm-value">${allItems.length}</div>
+          <div class="sm-sub">${dates.length}日分のデータ</div>
+        </div>
+        <div class="score-meter">
+          <div class="sm-label">TOP10 平均伸び率</div>
+          <div class="sm-value">${avgTopGrowth}x</div>
+          <div class="sm-sub">上位10動画の平均</div>
+        </div>
+        <div class="score-meter">
+          <div class="sm-label">TOP10 平均動画長</div>
+          <div class="sm-value">${avgTopDuration}秒</div>
+          <div class="sm-sub">最もバズった動画群</div>
+        </div>
+        <div class="score-meter">
+          <div class="sm-label">TOP10 平均登録者</div>
+          <div class="sm-value">${formatNum(avgTopSubs)}</div>
+          <div class="sm-sub">少ない登録者でもバズは可能</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 最適な動画の長さ -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#9202;</span> 最適な動画の長さ</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">
+        伸び率が最も高い長さは <span class="num-highlight">${bestDuration[0]}</span>（平均伸び率 ${bestDurAvg}x）
+      </p>
+      <div class="h-bar-chart">
+        ${Object.entries(durationBuckets).map(([label, data]) => {
+          const avg = data.count > 0 ? (data.totalGrowth / data.count).toFixed(1) : 0;
+          const width = (data.count / maxDurCount * 100).toFixed(0);
+          return `<div class="h-bar-row">
+            <div class="h-bar-label">${label}</div>
+            <div class="h-bar-track"><div class="h-bar-fill" style="width:${width}%">${avg}x</div></div>
+            <div class="h-bar-count">${data.count}件</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- バズ要因ランキング -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128293;</span> バズ要因ランキング</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">コメント分析から判明した、動画が伸びる主な理由</p>
+      <div class="h-bar-chart">
+        ${topBuzzReasons.map(([reason, count]) => {
+          const width = (count / maxBuzzCount * 100).toFixed(0);
+          return `<div class="h-bar-row">
+            <div class="h-bar-label" style="min-width:auto;max-width:250px;text-align:left;font-size:12px;">${esc(reason).substring(0, 30)}</div>
+            <div class="h-bar-track"><div class="h-bar-fill" style="width:${width}%">${count}件</div></div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- トレンドキーワード -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128196;</span> トレンドキーワード</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">バズ動画のタイトルに頻出するキーワード（大きいほど出現回数が多い）</p>
+      <div class="keyword-cloud">
+        ${topWords.map(([word, count], idx) => {
+          const cls = idx < 3 ? 'hot' : idx < 8 ? 'mid' : '';
+          return `<span class="keyword-tag ${cls}">${esc(word)} (${count})</span>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- 登録者帯別分析 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128101;</span> 登録者帯別バズ傾向</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">どの登録者帯が最もバズりやすいか</p>
+      <div class="h-bar-chart">
+        ${Object.entries(subBands).map(([label, data]) => {
+          const avg = data.count > 0 ? (data.totalGrowth / data.count).toFixed(1) : 0;
+          const maxCount = Math.max(...Object.values(subBands).map(b => b.count), 1);
+          const width = (data.count / maxCount * 100).toFixed(0);
+          return `<div class="h-bar-row">
+            <div class="h-bar-label">${label}人</div>
+            <div class="h-bar-track"><div class="h-bar-fill" style="width:${width}%">平均${avg}x</div></div>
+            <div class="h-bar-count">${data.count}件</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- 企画アイデア提案 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128161;</span> ヒット動画の企画アイデア</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:16px;">ランキングデータから導き出した、バズりやすい動画パターン</p>
+      <div class="action-cards">
+        ${generateActionCards(allItems, top10, bestDuration, topWords, topBuzzReasons)}
+      </div>
+    </div>
+
+    <!-- TOP10 一覧 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#127942;</span> 参考：伸び率TOP10（お手本動画）</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">これらの動画の構成・サムネ・テーマを研究しましょう</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${top10.map((d, i) => {
+          const vidMatch = (d.url || '').match(/shorts\/([a-zA-Z0-9_-]+)/);
+          const videoId = vidMatch ? vidMatch[1] : '';
+          const thumbSrc = videoId ? `https://i.ytimg.com/vi/${videoId}/oar2.jpg` : '';
+          return `<div style="display:flex;gap:12px;align-items:center;background:#0f0f1a;border-radius:8px;padding:10px 14px;">
+            <div style="font-size:20px;font-weight:bold;color:${i<3?'#ffd700':'#e94560'};min-width:30px;">${i+1}</div>
+            ${thumbSrc ? `<img src="${thumbSrc}" style="width:40px;height:54px;object-fit:cover;border-radius:4px;" onerror="this.style.display='none'">` : ''}
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(d.title)}</div>
+              <div style="font-size:11px;color:#888;">${esc(d.channel)} / ${(d.subscribers||0).toLocaleString()}人</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:16px;font-weight:bold;color:#e94560;">${d.growth_rate}x</div>
+              <div style="font-size:10px;color:#888;">${(d.views||0).toLocaleString()} 再生</div>
+            </div>
+            ${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" class="link-btn" style="font-size:11px;">見る</a>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function generateActionCards(allItems, top10, bestDuration, topWords, topBuzzReasons) {
+  const cards = [];
+
+  // 1. 最適な長さの提案
+  cards.push(`<div class="action-card">
+    <div class="ac-title">&#9202; 動画の長さは${bestDuration[0]}を狙え</div>
+    <div class="ac-body">
+      データ分析の結果、<strong style="color:#e94560;">${bestDuration[0]}</strong>の動画が最も伸び率が高い傾向にあります。
+      短すぎると内容が薄く、長すぎると離脱されるため、このゾーンがスイートスポットです。
+    </div>
+    <div class="ac-example"><strong>ポイント：</strong>冒頭2秒で視聴者を掴み、テンポよく展開する構成を意識しましょう</div>
+  </div>`);
+
+  // 2. トレンドキーワード活用
+  const hotWords = topWords.slice(0, 5).map(w => w[0]);
+  if (hotWords.length > 0) {
+    cards.push(`<div class="action-card">
+      <div class="ac-title">&#128196; トレンドワードを取り入れる</div>
+      <div class="ac-body">
+        今バズっている動画で頻出するキーワード：<br>
+        ${hotWords.map(w => `<span class="num-highlight" style="margin:2px;">${esc(w)}</span>`).join(' ')}
+        <br><br>これらのテーマを自分の動画に取り入れることで、おすすめに載りやすくなります。
+      </div>
+      <div class="ac-example"><strong>例：</strong>「${hotWords[0]}」をテーマにした企画を作ってみる</div>
+    </div>`);
+  }
+
+  // 3. バズ要因の活用
+  if (topBuzzReasons.length > 0) {
+    const topReason = topBuzzReasons[0][0];
+    cards.push(`<div class="action-card">
+      <div class="ac-title">&#128293; 最もバズる要素を強化</div>
+      <div class="ac-body">
+        コメント分析によると、最もバズに繋がる要素は<br>
+        <span class="num-highlight">${esc(topReason).substring(0, 40)}</span>
+        <br><br>この要素を動画の軸にすると視聴者の反応が得やすくなります。
+      </div>
+      <div class="ac-example"><strong>実践：</strong>サムネイルやタイトルでこの要素が伝わるように工夫する</div>
+    </div>`);
+  }
+
+  // 4. 登録者少なくてもバズれる
+  const smallCreators = top10.filter(d => (d.subscribers||0) <= 3000);
+  if (smallCreators.length > 0) {
+    cards.push(`<div class="action-card">
+      <div class="ac-title">&#128640; 少ない登録者でもバズは可能</div>
+      <div class="ac-body">
+        TOP10のうち<strong style="color:#e94560;">${smallCreators.length}件</strong>が登録者3,000人以下からのバズです。
+        登録者数よりも<strong>企画力とサムネイル</strong>が重要です。
+      </div>
+      <div class="ac-example"><strong>参考：</strong>${esc(smallCreators[0].channel)}（${(smallCreators[0].subscribers||0).toLocaleString()}人）が${smallCreators[0].growth_rate}xの伸び率を達成</div>
+    </div>`);
+  }
+
+  // 5. コメント誘導
+  cards.push(`<div class="action-card">
+    <div class="ac-title">&#128172; コメントを誘導する仕掛け</div>
+    <div class="ac-body">
+      コメント数が多い動画ほどアルゴリズムに評価されます。動画内で<strong>質問を投げかける</strong>、
+      <strong>「あなたはどっち？」系の二択</strong>、<strong>間違い探し</strong>などでコメントを促しましょう。
+    </div>
+    <div class="ac-example"><strong>テクニック：</strong>動画の最後に「みんなはどう思う？コメントで教えて！」を入れる</div>
+  </div>`);
+
+  // 6. 冒頭フックの重要性
+  cards.push(`<div class="action-card">
+    <div class="ac-title">&#127916; 最初の2秒が勝負</div>
+    <div class="ac-body">
+      ショート動画はスワイプされるかどうかが<strong>最初の2秒</strong>で決まります。
+      バズ動画の共通点は<strong>冒頭にインパクトのある映像やテキスト</strong>があることです。
+    </div>
+    <div class="ac-example"><strong>フック例：</strong>「えっ待って…」「これ知ってた？」「○○してみた結果…」</div>
+  </div>`);
+
+  return cards.join('');
+}
 </script>
 </body>
 </html>
