@@ -537,6 +537,93 @@
   }
   .action-card .ac-example strong { color: #e94560; }
 
+  /* バズシミュレーター */
+  .sim-wrap { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+  .sim-input-area { flex: 1; min-width: 260px; }
+  .sim-input-area label { display: block; font-size: 13px; color: #aaa; margin-bottom: 6px; }
+  .sim-input-area input[type="number"] {
+    width: 100%; padding: 12px; font-size: 18px; font-weight: bold;
+    background: #0f0f1a; border: 2px solid #e94560; border-radius: 8px;
+    color: #fff; outline: none;
+  }
+  .sim-result-area { flex: 1; min-width: 260px; }
+  .sim-result-card {
+    background: #0f0f1a; border-radius: 10px; padding: 16px;
+    margin-bottom: 10px; text-align: center;
+  }
+  .sim-result-card .sr-label { font-size: 12px; color: #888; margin-bottom: 4px; }
+  .sim-result-card .sr-value { font-size: 24px; font-weight: bold; color: #e94560; }
+  .sim-result-card .sr-sub { font-size: 11px; color: #666; margin-top: 4px; }
+
+  /* チェックリスト */
+  .checklist { display: flex; flex-direction: column; gap: 8px; }
+  .check-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    background: #0f0f1a; border-radius: 8px; padding: 14px 16px;
+    cursor: pointer; transition: all 0.2s; border: 1px solid transparent;
+  }
+  .check-item:hover { border-color: #333; }
+  .check-item.checked { opacity: 0.5; }
+  .check-item.checked .check-box { background: #e94560; border-color: #e94560; }
+  .check-item.checked .check-box::after { content: '✓'; color: #fff; font-size: 14px; }
+  .check-box {
+    width: 24px; height: 24px; min-width: 24px;
+    border: 2px solid #555; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .check-text { font-size: 14px; color: #ccc; line-height: 1.6; }
+  .check-text strong { color: #fff; }
+  .check-category {
+    font-size: 11px; color: #e94560; font-weight: bold;
+    text-transform: uppercase; margin-bottom: 2px;
+  }
+
+  /* ハッシュタグ分析 */
+  .hashtag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .hashtag-card {
+    background: #0f0f1a; border-radius: 8px; padding: 12px 14px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-left: 3px solid #e94560;
+  }
+  .hashtag-name { font-size: 14px; color: #4fc3f7; font-weight: bold; }
+  .hashtag-count { font-size: 13px; color: #888; }
+  .hashtag-bar {
+    height: 4px; background: #222; border-radius: 2px; margin-top: 6px;
+  }
+  .hashtag-bar-fill {
+    height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, #4fc3f7, #e94560);
+  }
+
+  /* 曜日・日別チャート */
+  .day-chart { display: flex; align-items: flex-end; gap: 8px; height: 180px; padding-top: 10px; }
+  .day-col {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%;
+  }
+  .day-bar {
+    width: 100%; max-width: 50px; border-radius: 6px 6px 0 0;
+    background: linear-gradient(180deg, #e94560, #f9844a);
+    transition: height 0.5s ease;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding-top: 4px; font-size: 11px; font-weight: bold; color: #fff;
+    min-height: 20px;
+  }
+  .day-bar.best { background: linear-gradient(180deg, #ffd700, #f9844a); }
+  .day-label { font-size: 12px; color: #aaa; margin-top: 6px; font-weight: bold; }
+
+  /* タイトルパターン分析 */
+  .title-patterns { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .title-pattern-card {
+    background: #0f0f1a; border-radius: 10px; padding: 16px; text-align: center;
+  }
+  .tp-icon { font-size: 28px; margin-bottom: 8px; }
+  .tp-label { font-size: 12px; color: #888; margin-bottom: 4px; }
+  .tp-value { font-size: 22px; font-weight: bold; color: #e94560; }
+  .tp-sub { font-size: 11px; color: #666; margin-top: 4px; }
+  .tp-good { color: #4caf50; }
+  .tp-bad { color: #f44336; }
+
   /* 数値ハイライト */
   .num-highlight {
     display: inline-block;
@@ -1494,6 +1581,65 @@ function renderHints() {
   const avgTopGrowth = top10.length > 0 ? (top10.reduce((s,d) => s + (d.growth_rate||0), 0) / top10.length).toFixed(1) : 0;
   const avgTopSubs = top10.length > 0 ? Math.round(top10.reduce((s,d) => s + (d.subscribers||0), 0) / top10.length) : 0;
 
+  // --- 6. 曜日別バズ分析 ---
+  const dayNames = ['日','月','火','水','木','金','土'];
+  const dayStats = Array.from({length:7}, () => ({count:0, totalGrowth:0}));
+  for (const d of allItems) {
+    if (!d.published) continue;
+    const dt = new Date(d.published + 'T00:00:00');
+    const dow = dt.getDay();
+    dayStats[dow].count++;
+    dayStats[dow].totalGrowth += (d.growth_rate || 0);
+  }
+  const maxDayCount = Math.max(...dayStats.map(s => s.count), 1);
+  const bestDayIdx = dayStats.reduce((best, s, i) => {
+    const avg = s.count > 0 ? s.totalGrowth / s.count : 0;
+    const bestAvg = dayStats[best].count > 0 ? dayStats[best].totalGrowth / dayStats[best].count : 0;
+    return avg > bestAvg ? i : best;
+  }, 0);
+
+  // --- 7. ハッシュタグ分析 ---
+  const hashtagCount = {};
+  for (const d of allItems) {
+    const tags = (d.title || '').match(/#[^\s#]+/g) || [];
+    for (const tag of tags) {
+      const t = tag.toLowerCase();
+      hashtagCount[t] = (hashtagCount[t] || 0) + 1;
+    }
+  }
+  const topHashtags = Object.entries(hashtagCount).sort((a,b) => b[1] - a[1]).slice(0, 12);
+  const maxHashCount = topHashtags.length > 0 ? topHashtags[0][1] : 1;
+
+  // --- 8. タイトルパターン分析 ---
+  let titleWithEmoji = 0, titleWithQuestion = 0, titleWithExclamation = 0;
+  let totalTitleLen = 0, shortTitleCount = 0, longTitleCount = 0;
+  let titleWithNumbers = 0;
+  const emojiRegex = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}]/u;
+  for (const d of allItems) {
+    const t = (d.title || '').replace(/#\S+/g, '').trim();
+    totalTitleLen += t.length;
+    if (t.length <= 15) shortTitleCount++;
+    if (t.length >= 30) longTitleCount++;
+    if (emojiRegex.test(d.title || '')) titleWithEmoji++;
+    if (/[？?]/.test(t)) titleWithQuestion++;
+    if (/[！!]/.test(t)) titleWithExclamation++;
+    if (/\d/.test(t)) titleWithNumbers++;
+  }
+  const avgTitleLen = allItems.length > 0 ? Math.round(totalTitleLen / allItems.length) : 0;
+  // 短いタイトルと長いタイトルどっちが伸び率高いか
+  const shortTitleItems = allItems.filter(d => (d.title||'').replace(/#\S+/g,'').trim().length <= 15);
+  const longTitleItems = allItems.filter(d => (d.title||'').replace(/#\S+/g,'').trim().length >= 30);
+  const avgGrowthShort = shortTitleItems.length > 0 ? (shortTitleItems.reduce((s,d)=>s+(d.growth_rate||0),0)/shortTitleItems.length).toFixed(1) : 0;
+  const avgGrowthLong = longTitleItems.length > 0 ? (longTitleItems.reduce((s,d)=>s+(d.growth_rate||0),0)/longTitleItems.length).toFixed(1) : 0;
+
+  // --- 9. バズスコア計算用の統計 ---
+  const avgGrowthAll = allItems.length > 0 ? allItems.reduce((s,d) => s + (d.growth_rate||0), 0) / allItems.length : 5;
+  const medianGrowth = (() => {
+    const sorted = [...allItems].map(d => d.growth_rate||0).sort((a,b)=>a-b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
+  })();
+
   // --- レンダリング ---
   const body = document.getElementById('hintsBody');
   body.innerHTML = `
@@ -1588,6 +1734,110 @@ function renderHints() {
       </div>
     </div>
 
+    <!-- 曜日別バズ分析 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128197;</span> 曜日別バズ傾向</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">
+        最もバズりやすい投稿曜日は <span class="num-highlight">${dayNames[bestDayIdx]}曜日</span>
+        （平均伸び率 ${dayStats[bestDayIdx].count > 0 ? (dayStats[bestDayIdx].totalGrowth / dayStats[bestDayIdx].count).toFixed(1) : 0}x）
+      </p>
+      <div class="day-chart">
+        ${dayStats.map((s, i) => {
+          const pct = maxDayCount > 0 ? (s.count / maxDayCount * 100) : 0;
+          const avg = s.count > 0 ? (s.totalGrowth / s.count).toFixed(1) : 0;
+          const cls = i === bestDayIdx ? 'best' : '';
+          return '<div class="day-col"><div class="day-bar ' + cls + '" style="height:' + Math.max(pct, 8) + '%;" title="平均伸び率: ' + avg + 'x">' + s.count + '</div><div class="day-label">' + dayNames[i] + '</div></div>';
+        }).join('')}
+      </div>
+      <p style="color:#666;font-size:11px;margin-top:8px;text-align:center;">※ 数字はバズ動画の投稿件数 / バーにカーソルを合わせると平均伸び率を表示</p>
+    </div>
+
+    <!-- ハッシュタグ分析 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128278;</span> バズ動画のハッシュタグ分析</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">バズ動画で使われている人気ハッシュタグ。動画投稿時の参考にしましょう。</p>
+      <div class="hashtag-grid">
+        ${topHashtags.map(([tag, count]) => {
+          const pct = (count / maxHashCount * 100).toFixed(0);
+          return '<div class="hashtag-card"><div><div class="hashtag-name">' + esc(tag) + '</div><div class="hashtag-bar"><div class="hashtag-bar-fill" style="width:' + pct + '%"></div></div></div><div class="hashtag-count">' + count + '件</div></div>';
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- タイトル構成パターン -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#9999;&#65039;</span> タイトル構成パターン分析</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">バズ動画のタイトルにはどんな特徴があるか</p>
+      <div class="title-patterns">
+        <div class="title-pattern-card">
+          <div class="tp-icon">📏</div>
+          <div class="tp-label">平均タイトル文字数</div>
+          <div class="tp-value">${avgTitleLen}文字</div>
+          <div class="tp-sub">ハッシュタグ除く</div>
+        </div>
+        <div class="title-pattern-card">
+          <div class="tp-icon">❓</div>
+          <div class="tp-label">疑問形タイトル</div>
+          <div class="tp-value">${allItems.length>0?Math.round(titleWithQuestion/allItems.length*100):0}%</div>
+          <div class="tp-sub">${titleWithQuestion}件 / ${allItems.length}件</div>
+        </div>
+        <div class="title-pattern-card">
+          <div class="tp-icon">❗</div>
+          <div class="tp-label">感嘆符タイトル</div>
+          <div class="tp-value">${allItems.length>0?Math.round(titleWithExclamation/allItems.length*100):0}%</div>
+          <div class="tp-sub">${titleWithExclamation}件 / ${allItems.length}件</div>
+        </div>
+        <div class="title-pattern-card">
+          <div class="tp-icon">😀</div>
+          <div class="tp-label">絵文字使用率</div>
+          <div class="tp-value">${allItems.length>0?Math.round(titleWithEmoji/allItems.length*100):0}%</div>
+          <div class="tp-sub">${titleWithEmoji}件 / ${allItems.length}件</div>
+        </div>
+        <div class="title-pattern-card">
+          <div class="tp-icon">🔢</div>
+          <div class="tp-label">数字入りタイトル</div>
+          <div class="tp-value">${allItems.length>0?Math.round(titleWithNumbers/allItems.length*100):0}%</div>
+          <div class="tp-sub">${titleWithNumbers}件 / ${allItems.length}件</div>
+        </div>
+        <div class="title-pattern-card">
+          <div class="tp-icon">📊</div>
+          <div class="tp-label">短いvs長い</div>
+          <div class="tp-value tp-good" style="font-size:16px;">${Number(avgGrowthShort) >= Number(avgGrowthLong) ? '短い方が◎' : '長い方が◎'}</div>
+          <div class="tp-sub">短≤15字: ${avgGrowthShort}x / 長≥30字: ${avgGrowthLong}x</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- バズスコアシミュレーター -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#127919;</span> バズスコアシミュレーター</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:16px;">あなたの登録者数を入力すると、バズった場合の目標再生数を計算します</p>
+      <div class="sim-wrap">
+        <div class="sim-input-area">
+          <label>あなたのチャンネル登録者数</label>
+          <input type="number" id="simSubInput" placeholder="例: 1000" min="1" value="1000"
+                 oninput="updateSimulator()">
+          <p style="color:#666;font-size:11px;margin-top:8px;">
+            ※ ランキングデータの平均・中央値・上位の伸び率をもとに算出
+          </p>
+        </div>
+        <div class="sim-result-area" id="simResults">
+        </div>
+      </div>
+    </div>
+
+    <!-- 投稿前チェックリスト -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#9989;</span> 投稿前チェックリスト</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:16px;">バズるショート動画を投稿する前に確認しましょう（クリックでチェック）</p>
+      <div class="checklist" id="buzzChecklist">
+      </div>
+      <div style="text-align:center;margin-top:16px;">
+        <div id="checkProgress" style="font-size:14px;color:#888;"></div>
+        <button onclick="resetChecklist()" style="margin-top:8px;background:#1a1a2e;border:1px solid #444;color:#aaa;padding:6px 16px;border-radius:6px;cursor:pointer;font-size:12px;">リセット</button>
+      </div>
+    </div>
+
     <!-- 企画アイデア提案 -->
     <div class="hint-section">
       <h3><span class="h-icon">&#128161;</span> ヒット動画の企画アイデア</h3>
@@ -1623,6 +1873,12 @@ function renderHints() {
       </div>
     </div>
   `;
+
+  // 初期化呼び出し
+  setTimeout(() => {
+    initSimulator(avgGrowthAll, medianGrowth, parseFloat(avgTopGrowth));
+    initChecklist();
+  }, 50);
 }
 
 function generateActionCards(allItems, top10, bestDuration, topWords, topBuzzReasons) {
@@ -1700,6 +1956,91 @@ function generateActionCards(allItems, top10, bestDuration, topWords, topBuzzRea
   </div>`);
 
   return cards.join('');
+}
+
+// --- バズスコアシミュレーター ---
+let simAvgGrowth = 5, simMedianGrowth = 4, simTopGrowth = 10;
+function initSimulator(avgG, medG, topG) {
+  simAvgGrowth = avgG; simMedianGrowth = medG; simTopGrowth = topG;
+  updateSimulator();
+}
+function updateSimulator() {
+  const subs = parseInt(document.getElementById('simSubInput')?.value) || 1000;
+  const results = document.getElementById('simResults');
+  if (!results) return;
+  const minViews = Math.round(subs * 3);
+  const avgViews = Math.round(subs * simAvgGrowth);
+  const topViews = Math.round(subs * simTopGrowth);
+  results.innerHTML = `
+    <div class="sim-result-card">
+      <div class="sr-label">🎯 ランキング入りライン（×3）</div>
+      <div class="sr-value">${avgViews.toLocaleString()} 再生</div>
+      <div class="sr-sub">まずはこの再生数を目指しましょう</div>
+    </div>
+    <div class="sim-result-card">
+      <div class="sr-label">🔥 平均バズライン（×${simAvgGrowth.toFixed(1)}）</div>
+      <div class="sr-value" style="color:#f9844a;">${(Math.round(subs * simAvgGrowth)).toLocaleString()} 再生</div>
+      <div class="sr-sub">ランキング動画の平均伸び率</div>
+    </div>
+    <div class="sim-result-card">
+      <div class="sr-label">🏆 大バズライン（×${simTopGrowth.toFixed(1)}）</div>
+      <div class="sr-value" style="color:#ffd700;">${topViews.toLocaleString()} 再生</div>
+      <div class="sr-sub">TOP10レベルの伸び率</div>
+    </div>
+  `;
+}
+
+// --- チェックリスト ---
+const checklistItems = [
+  { cat: 'フック', text: '<strong>冒頭2秒</strong>にインパクトのある映像・テキスト・音声がある' },
+  { cat: 'フック', text: '最初のフレームで<strong>「何の動画か」が一目でわかる</strong>' },
+  { cat: '構成', text: '動画の長さが<strong>15〜35秒</strong>の最適ゾーンに収まっている' },
+  { cat: '構成', text: 'テンポが良く、<strong>無駄な間がない</strong>' },
+  { cat: '構成', text: '最後まで見たくなる<strong>オチや展開</strong>がある' },
+  { cat: 'タイトル', text: 'タイトルに<strong>トレンドキーワード</strong>を含めている' },
+  { cat: 'タイトル', text: '関連する<strong>ハッシュタグ</strong>を3〜5個つけている' },
+  { cat: 'タイトル', text: 'タイトルが<strong>短く簡潔</strong>で気になる表現になっている' },
+  { cat: 'エンゲージ', text: '動画内で<strong>質問や呼びかけ</strong>をしてコメントを誘導している' },
+  { cat: 'エンゲージ', text: '<strong>高評価・チャンネル登録</strong>の呼びかけが入っている' },
+  { cat: '技術', text: '<strong>音量・画質</strong>が適切で見やすい' },
+  { cat: '技術', text: '<strong>テロップ・字幕</strong>がついている（ミュート視聴対策）' },
+  { cat: '投稿', text: 'バズりやすい<strong>曜日・時間帯</strong>に投稿する' },
+  { cat: '投稿', text: '投稿後に<strong>SNSでシェア</strong>する予定がある' },
+];
+
+function initChecklist() {
+  const container = document.getElementById('buzzChecklist');
+  if (!container) return;
+  const saved = JSON.parse(localStorage.getItem('buzzChecklist') || '[]');
+  container.innerHTML = checklistItems.map((item, i) => {
+    const checked = saved.includes(i);
+    return `<div class="check-item ${checked?'checked':''}" onclick="toggleCheck(${i}, this)">
+      <div class="check-box">${checked?'✓':''}</div>
+      <div>
+        <div class="check-category">${item.cat}</div>
+        <div class="check-text">${item.text}</div>
+      </div>
+    </div>`;
+  }).join('');
+  updateCheckProgress();
+}
+function toggleCheck(idx, el) {
+  const saved = JSON.parse(localStorage.getItem('buzzChecklist') || '[]');
+  const pos = saved.indexOf(idx);
+  if (pos >= 0) { saved.splice(pos, 1); el.classList.remove('checked'); el.querySelector('.check-box').textContent = ''; }
+  else { saved.push(idx); el.classList.add('checked'); el.querySelector('.check-box').textContent = '✓'; }
+  localStorage.setItem('buzzChecklist', JSON.stringify(saved));
+  updateCheckProgress();
+}
+function updateCheckProgress() {
+  const saved = JSON.parse(localStorage.getItem('buzzChecklist') || '[]');
+  const pct = Math.round(saved.length / checklistItems.length * 100);
+  const el = document.getElementById('checkProgress');
+  if (el) el.innerHTML = `<span style="color:${pct===100?'#4caf50':'#e94560'};font-weight:bold;">${saved.length} / ${checklistItems.length}</span> 完了（${pct}%）${pct===100?' 🎉 完璧！投稿しましょう！':''}`;
+}
+function resetChecklist() {
+  localStorage.removeItem('buzzChecklist');
+  initChecklist();
 }
 </script>
 </body>
