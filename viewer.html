@@ -1470,23 +1470,43 @@ function allRenderTable(data) {
 
   const maxGrowth = Math.max(...data.map(d => d.growth_rate||0), 1);
   tbody.innerHTML = data.map((d, i) => {
+    const rank = i + 1;
+    const rankClass = rank <= 3 ? ` rank-${rank}` : '';
+    const growthClass = (d.growth_rate||0) >= 15 ? 'growth-high' : (d.growth_rate||0) >= 8 ? 'growth-mid' : 'growth-low';
+    const barWidth = ((d.growth_rate||0) / maxGrowth * 100).toFixed(1);
+    const linkHtml = d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" class="link-btn" onclick="event.stopPropagation()">再生</a>` : '';
     const vidMatch = (d.url||'').match(/shorts\/([a-zA-Z0-9_-]+)/);
     const videoId = vidMatch ? vidMatch[1] : '';
-    const thumbSrc = videoId ? 'https://i.ytimg.com/vi/' + videoId + '/oar2.jpg' : '';
-    const barWidth = ((d.growth_rate||0) / maxGrowth * 100).toFixed(0);
-    const analysisHtml = d.analysis ? '<div class="analysis-cell"><div class="analysis-text">' + esc(d.analysis).replace(/\n/g,'<br>') + '</div></div>' : '';
-    return '<tr><td>' + (i+1) + '</td>' +
-      '<td>' + (thumbSrc ? '<img src="' + thumbSrc + '" class="thumb" onerror="this.style.display=\'none\'">' : '') + '</td>' +
-      '<td class="title-cell">' + esc(d.title) + analysisHtml + '</td>' +
-      '<td>' + esc(d.channel) + '</td>' +
-      '<td>' + (d.subscribers||0).toLocaleString() + '</td>' +
-      '<td>' + (d.views||0).toLocaleString() + '</td>' +
-      '<td><div class="growth-bar"><div class="growth-fill" style="width:' + barWidth + '%"></div></div></td>' +
-      '<td class="growth-cell">' + (d.growth_rate||0) + 'x</td>' +
-      '<td>' + (d.comments||0).toLocaleString() + '</td>' +
-      '<td>' + (d.duration||0) + 's</td>' +
-      '<td>' + esc(d.published||'') + '</td>' +
-      '<td>' + (d.url ? '<a href="' + esc(d.url) + '" target="_blank" rel="noopener" class="link-btn">見る</a>' : '') + '</td></tr>';
+    const thumbHtml = videoId
+      ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><img src="https://i.ytimg.com/vi/${videoId}/oar2.jpg" alt="" loading="lazy" onerror="this.src='https://i.ytimg.com/vi/${videoId}/hqdefault.jpg'"></a>`
+      : '';
+
+    const hasAnalysis = d.analysis && d.analysis.trim();
+    const expandIcon = hasAnalysis ? '<span class="expand-icon">&#9654;</span>' : '';
+    const analysisHtml = hasAnalysis ? formatAnalysis(d.analysis) : '';
+    const rowId = `all-analysis-${i}`;
+
+    let rows = `<tr class="${hasAnalysis ? 'expandable' : ''}" onclick="${hasAnalysis ? `toggleAnalysis('${rowId}', this)` : ''}">
+      <td class="rank${rankClass}">${rank}${expandIcon}</td>
+      <td class="thumb-cell">${thumbHtml}</td>
+      <td class="title-cell">${esc(d.title)}</td>
+      <td class="channel-cell" title="${esc(d.channel)}">${esc(d.channel)}</td>
+      <td class="num">${(d.subscribers||0).toLocaleString()}</td>
+      <td class="num">${(d.views||0).toLocaleString()}</td>
+      <td class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${barWidth}%"></div></div></td>
+      <td class="growth ${growthClass}">${d.growth_rate||0}x</td>
+      <td class="num">${(d.comments||0).toLocaleString()}</td>
+      <td class="num">${d.duration||0}s</td>
+      <td>${d.published || ''}</td>
+      <td>${linkHtml}</td>
+    </tr>`;
+
+    if (hasAnalysis) {
+      rows += `<tr class="analysis-row" id="${rowId}" style="display:none;">
+        <td colspan="12"><div class="analysis-box">${analysisHtml}</div></td>
+      </tr>`;
+    }
+    return rows;
   }).join('');
 }
 
@@ -1496,26 +1516,32 @@ function allRenderGrid(data) {
     container.innerHTML = '<div class="empty-state"><p>この日のデータはありません</p></div>';
     return;
   }
-  const maxGrowth = Math.max(...data.map(d => d.growth_rate||0), 1);
   container.innerHTML = data.map((d, i) => {
+    const rank = i + 1;
+    const rankColor = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
     const vidMatch = (d.url||'').match(/shorts\/([a-zA-Z0-9_-]+)/);
     const videoId = vidMatch ? vidMatch[1] : '';
     const thumbSrc = videoId ? 'https://i.ytimg.com/vi/' + videoId + '/oar2.jpg' : '';
-    const barWidth = ((d.growth_rate||0) / maxGrowth * 100).toFixed(0);
-    const analysisHtml = d.analysis ? '<div class="grid-card-analysis"><div class="grid-analysis-text">' + esc(d.analysis).replace(/【バズ要因】/g,'<span class="grid-analysis-icon">🔥</span> <strong>バズ要因:</strong> ').replace(/【注目度】/g,'<span class="grid-analysis-icon">📈</span> <strong>注目度:</strong> ').replace(/【人気コメント】/g,'<span class="grid-analysis-icon">💬</span> <strong>人気コメント:</strong> ').replace(/\n/g,'<br>').replace(/「([^」]+)」/g,'<span class="grid-analysis-quote">「$1」</span>') + '</div></div>' : '';
+    const thumbErr = videoId ? 'onerror="this.src=\'https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg\'"' : '';
+    const link = d.url ? esc(d.url) : '#';
 
-    return '<div class="grid-card">' +
-      '<div class="grid-rank">' + (i+1) + '</div>' +
-      '<a href="' + esc(d.url||'') + '" target="_blank" rel="noopener" class="grid-thumb-link">' +
-      (thumbSrc ? '<img src="' + thumbSrc + '" class="grid-thumb" onerror="this.src=\'\';this.alt=\'No thumb\'">' : '<div class="grid-thumb" style="background:#222;"></div>') +
-      '</a>' +
-      '<div class="grid-info">' +
-      '<div class="grid-title">' + esc(d.title) + '</div>' +
-      '<div class="grid-channel">' + esc(d.channel) + '</div>' +
-      '<div class="grid-stats-row"><span>👁 ' + (d.views||0).toLocaleString() + '</span><span>👤 ' + (d.subscribers||0).toLocaleString() + '</span><span>💬 ' + (d.comments||0).toLocaleString() + '</span></div>' +
-      '<div class="grid-growth"><div class="growth-bar"><div class="growth-fill" style="width:' + barWidth + '%"></div></div><span class="growth-cell">' + (d.growth_rate||0) + 'x</span></div>' +
-      analysisHtml +
-      '</div></div>';
+    return `<a href="${link}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+      <div class="grid-card">
+        <div class="grid-card-rank ${rankColor}">${rank}</div>
+        <div class="grid-card-growth">${d.growth_rate||0}x</div>
+        ${thumbSrc ? `<img class="grid-card-thumb" src="${thumbSrc}" ${thumbErr} alt="" loading="lazy">` : '<div class="grid-card-thumb"></div>'}
+        <div class="grid-card-body">
+          <div class="grid-card-title">${esc(d.title)}</div>
+          <div class="grid-card-channel">${esc(d.channel)}</div>
+          <div class="grid-card-stats">
+            <div class="stat-item"><span class="val">${formatNum(d.views||0)}</span><span class="stat-label">再生数</span></div>
+            <div class="stat-item"><span class="val">${formatNum(d.subscribers||0)}</span><span class="stat-label">登録者</span></div>
+            <div class="stat-item"><span class="val">${d.comments||0}</span><span class="stat-label">コメント</span></div>
+          </div>
+        </div>
+        ${d.analysis ? formatGridAnalysis(d.analysis) : ''}
+      </div>
+    </a>`;
   }).join('');
 }
 
