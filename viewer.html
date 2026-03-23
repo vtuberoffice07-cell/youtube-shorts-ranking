@@ -1685,7 +1685,7 @@ function ttRenderTable(data) {
     const barWidth = ((d.growth_rate||0) / maxGrowth * 100).toFixed(1);
     const linkHtml = d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" class="link-btn" style="background:#00f2ea;">再生</a>` : '';
     const coverHtml = d.cover
-      ? `<a href="${esc(d.url)}" target="_blank" rel="noopener"><img src="${esc(d.cover)}" alt="" loading="lazy" style="width:72px;height:96px;object-fit:cover;border-radius:6px;"></a>`
+      ? `<a href="${esc(d.url)}" target="_blank" rel="noopener"><img src="${esc(d.cover)}" alt="" loading="lazy" style="width:72px;height:96px;object-fit:cover;border-radius:6px;" onerror="this.style.display='none';this.parentElement.innerHTML='<div style=\\'width:72px;height:96px;background:#1a1a2e;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:24px;color:#ff0050\\'>&#9654;</div>';"></a>`
       : '';
 
     return `<tr>
@@ -1723,7 +1723,10 @@ function ttRenderGrid(data) {
       <div class="grid-card">
         <div class="grid-card-rank ${rankColor}">${rank}</div>
         <div class="grid-card-growth" style="background:rgba(255,0,80,0.9);">${d.growth_rate||0}x</div>
-        ${coverSrc ? `<img class="grid-card-thumb" src="${coverSrc}" alt="" loading="lazy">` : '<div class="grid-card-thumb" style="background:#222;"></div>'}
+        ${coverSrc
+          ? `<img class="grid-card-thumb" src="${coverSrc}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+             <div class="grid-card-thumb tt-placeholder" style="display:none;background:#1a1a2e;align-items:center;justify-content:center;font-size:36px;color:#ff0050;">&#9654;</div>`
+          : '<div class="grid-card-thumb tt-placeholder" style="background:#1a1a2e;display:flex;align-items:center;justify-content:center;font-size:36px;color:#ff0050;">&#9654;</div>'}
         <div class="grid-card-body">
           <div class="grid-card-title">${esc(d.title)}</div>
           <div class="grid-card-channel">${esc(d.author||'')}</div>
