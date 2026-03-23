@@ -1761,19 +1761,60 @@ function renderHints() {
   })[0];
   const bestDurAvg = bestDuration[1].count > 0 ? (bestDuration[1].totalGrowth / bestDuration[1].count).toFixed(1) : 0;
 
-  // --- 2. タイトルキーワード分析 ---
+  // --- 2. コメントキーワード分析 ---
   const wordCount = {};
-  const stopWords = new Set(['#','の','は','が','を','に','で','と','も','た','だ','な','て','し','い','る','よ','か','ね','へ','から','まで','より','shorts','vtuber','新人vtuber','個人vtuber','short','ch']);
+  const stopWords = new Set([
+    'の','は','が','を','に','で','と','も','た','だ','な','て','し','い','る','よ','か','ね','へ',
+    'から','まで','より','して','した','する','され','これ','それ','あれ','この','その','ある','いる',
+    'ない','なる','れる','られ','ので','のに','ため','こと','もの','ところ','ほど','くらい','ぐらい',
+    'です','ます','ました','ません','でした','という','ている','ていた','ちゃん','さん','くん',
+    'ほんと','ほんとう','すぎる','けど','から','って','ので','のに','てる','ない','ある',
+    'いい','ない','ねん','やん','かな','だね','よね','わね','だよ','ますね',
+    'ゆる','いう','なん','こんな','そんな','あんな','どんな',
+    'バズ要因','注目度','人気コメント','いいね','登録者','伸び率',
+    'おすすめフィード','拡散','寄与','可能性','フォロワー','堅調','高水準','驚異的',
+    '視聴者','非フォロワー','大規模','発生','既存ファン','リーチ','広がっ',
+    '笑いやユーモア','刺さった','掴んだ','多数','繋がった','後押',
+    '推しポイント','共感性','クオリティ','テンポ','好評',
+    // コメント定型ワード除外
+    'チャンネル','登録','高評価','コメント','動画','投稿','応援','頑張',
+    'チャンネル登録','高評価嬉','方好','主様','全部',
+    // 不自然な2文字切れ端
+    'カワ','気抜','出来','大抵','今後','本当','最近','最初','最後','一番',
+    '自分','相手','本人','他人','普通','絶対','結構','結果','意味','必要',
+    '可能','確認','紹介','表示','再生','次回','毎回','今回',
+  ]);
+  // バズ要因の定型文を除外するパターン
+  const templatePhrases = [
+    '笑いやユーモアが視聴者に刺さった',
+    'かわいさや推しポイントが視聴者の心を掴んだ',
+    'スキルやクオリティの高さに驚きの声が多数',
+    'あるある感や共感性の高い内容が拡散を後押し',
+    '視聴者からの応援・期待の声が多く伸びに繋がった',
+    '意外性や衝撃的な内容で注目を集めた',
+    '声やビジュアルの魅力が評価された',
+    '編集のクオリティやテンポの良さが好評',
+  ];
   for (const d of allItems) {
-    const title = (d.title || '').replace(/#\S+/g, '');
-    // 2-6文字の日本語単語を抽出
-    const matches = title.match(/[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]{2,8}/g) || [];
-    for (const w of matches) {
-      if (stopWords.has(w.toLowerCase())) continue;
+    if (!d.analysis) continue;
+    const commentMatch = d.analysis.match(/【人気コメント】「(.+?)」/);
+    const commentText = commentMatch ? commentMatch[1] : '';
+    if (!commentText) continue;
+    // カタカナ複合語（2〜12文字のカタカナ連続、長音符含む）
+    const katakana = commentText.match(/[\u30A1-\u30F6\u30FC]{3,12}/g) || [];
+    // 漢字複合語（2〜4文字の漢字連続）
+    const kanji = commentText.match(/[\u4E00-\u9FFF]{2,4}/g) || [];
+    const allMatches = [...katakana, ...kanji];
+    for (const w of allMatches) {
+      if (stopWords.has(w)) continue;
+      // 1文字カタカナ（長音のみ等）を除外
+      if (w.replace(/ー/g,'').length < 2) continue;
       wordCount[w] = (wordCount[w] || 0) + 1;
     }
   }
-  const topWords = Object.entries(wordCount).sort((a,b) => b[1] - a[1]).slice(0, 20);
+  const topWords = Object.entries(wordCount)
+    .filter(([w]) => !templatePhrases.some(tp => tp.includes(w)))
+    .sort((a,b) => b[1] - a[1]).slice(0, 20);
 
   // --- 3. バズ要因カテゴリ集計 ---
   const buzzCategories = {};
@@ -1942,7 +1983,7 @@ function renderHints() {
     <!-- トレンドキーワード -->
     <div class="hint-section">
       <h3><span class="h-icon">&#128196;</span> トレンドキーワード</h3>
-      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">バズ動画のタイトルに頻出するキーワード（大きいほど出現回数が多い）</p>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">バズ動画のコメント・分析から抽出した頻出キーワード（大きいほど出現回数が多い）</p>
       <div class="keyword-cloud">
         ${topWords.map(([word, count], idx) => {
           const cls = idx < 3 ? 'hot' : idx < 8 ? 'mid' : '';
@@ -2135,9 +2176,9 @@ function generateActionCards(allItems, top10, bestDuration, topWords, topBuzzRea
     cards.push(`<div class="action-card">
       <div class="ac-title">&#128196; トレンドワードを取り入れる</div>
       <div class="ac-body">
-        今バズっている動画で頻出するキーワード：<br>
+        バズ動画のコメントで視聴者が反応しているキーワード：<br>
         ${hotWords.map(w => `<span class="num-highlight" style="margin:2px;">${esc(w)}</span>`).join(' ')}
-        <br><br>これらのテーマを自分の動画に取り入れることで、おすすめに載りやすくなります。
+        <br><br>視聴者が実際に反応する要素を動画に取り入れましょう。
       </div>
       <div class="ac-example"><strong>例：</strong>「${hotWords[0]}」をテーマにした企画を作ってみる</div>
     </div>`);
