@@ -1,3 +1,5 @@
 .env
 __pycache__/
 .claude/
+tweets.db
+tweet_raw_debug.json

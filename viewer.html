@@ -805,6 +805,7 @@
   <button class="tab-btn active" data-tab="daily">YouTube Shorts</button>
   <button class="tab-btn" data-tab="allvtuber">全体ランキング</button>
   <button class="tab-btn" data-tab="tiktok">TikTok</button>
+  <button class="tab-btn" data-tab="twitter">Twitter</button>
   <button class="tab-btn" data-tab="trends">チャンネル推移</button>
   <button class="tab-btn" data-tab="hints">企画ヒント</button>
 </div>
@@ -968,6 +969,58 @@
   </div>
 </div>
 
+<!-- Twitter view -->
+<div id="twitterView" style="display:none;">
+  <div class="date-nav">
+    <button class="nav-btn" id="twPrevDay" title="前日">&#9664;</button>
+    <input type="date" id="twDatePicker">
+    <button class="nav-btn" id="twNextDay" title="翌日">&#9654;</button>
+    <span class="date-info" id="twDateInfo"></span>
+  </div>
+  <div class="controls">
+    <label>並び替え:</label>
+    <select id="twSortSelect">
+      <option value="like_count-desc">いいね数（多い順）</option>
+      <option value="retweet_count-desc">RT数（多い順）</option>
+      <option value="impression_count-desc">インプレッション（多い順）</option>
+      <option value="quote_count-desc">引用数（多い順）</option>
+      <option value="reply_count-desc">リプライ数（多い順）</option>
+    </select>
+    <label>検索:</label>
+    <input type="text" id="twSearchInput" placeholder="ツイート本文・投稿者名...">
+    <div class="view-toggle">
+      <button class="view-toggle-btn" id="twViewTable" title="テーブル表示">&#9776;</button>
+      <button class="view-toggle-btn active" id="twViewGrid" title="グリッド表示">&#9638;</button>
+    </div>
+  </div>
+  <div class="stats" id="twStatsArea"></div>
+  <div id="twGridContainer" class="grid-wrap"></div>
+  <div class="table-wrap" id="twTableContainer" style="display:none;">
+    <div id="twEmptyState" class="empty-state">
+      <p>tweet_history.json を読み込み中...</p>
+      <p style="font-size:14px;color:#555;">tweet_ranking.py を実行するとデータが生成されます</p>
+    </div>
+    <table id="twRankingTable" style="display:none;">
+      <thead>
+        <tr>
+          <th data-twcol="rank">順位</th>
+          <th>アイコン</th>
+          <th data-twcol="author_name">投稿者</th>
+          <th data-twcol="text">ツイート本文</th>
+          <th data-twcol="like_count">いいね</th>
+          <th data-twcol="retweet_count">RT</th>
+          <th data-twcol="impression_count">インプレッション</th>
+          <th data-twcol="quote_count">引用</th>
+          <th data-twcol="reply_count">リプライ</th>
+          <th data-twcol="posted_at">投稿日</th>
+          <th>リンク</th>
+        </tr>
+      </thead>
+      <tbody id="twTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
 <!-- Trends view -->
 <div id="trendsView" style="display:none;">
   <div class="controls">
@@ -1010,6 +1063,7 @@ function tryLogin() {
     loadData();
     loadAllVData();
     loadTikTokData();
+    loadTwitterData();
   } else {
     document.getElementById('authError').style.display = 'block';
     document.getElementById('authPassword').value = '';
@@ -1060,10 +1114,12 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.getElementById('dailyView').style.display = tab === 'daily' ? '' : 'none';
     document.getElementById('allVtuberView').style.display = tab === 'allvtuber' ? '' : 'none';
     document.getElementById('tiktokView').style.display = tab === 'tiktok' ? '' : 'none';
+    document.getElementById('twitterView').style.display = tab === 'twitter' ? '' : 'none';
     document.getElementById('trendsView').style.display = tab === 'trends' ? '' : 'none';
     document.getElementById('hintsView').style.display = tab === 'hints' ? '' : 'none';
     if (tab === 'allvtuber') allRenderAll();
     if (tab === 'tiktok') ttRenderAll();
+    if (tab === 'twitter') twRenderAll();
     if (tab === 'trends') renderTrends();
     if (tab === 'hints') renderHints();
   });
@@ -1886,6 +1942,231 @@ document.querySelectorAll('thead th[data-ttcol]').forEach(th => {
     const val = `${col}-${ttCurrentSort.desc ? 'desc' : 'asc'}`;
     for (const opt of sel.options) { if (opt.value === val) { sel.value = val; break; } }
     ttRenderAll();
+  });
+});
+
+// ================================================================
+// Twitter Ranking Logic
+// ================================================================
+let twHistoryData = {};
+let twDates = [];
+let twCurrentDate = '';
+let twAllData = [];
+let twCurrentSort = { key: 'like_count', desc: true };
+let twCurrentView = 'grid';
+
+// View toggle
+document.getElementById('twViewTable').addEventListener('click', () => {
+  twCurrentView = 'table';
+  document.getElementById('twViewTable').classList.add('active');
+  document.getElementById('twViewGrid').classList.remove('active');
+  twRenderAll();
+});
+document.getElementById('twViewGrid').addEventListener('click', () => {
+  twCurrentView = 'grid';
+  document.getElementById('twViewGrid').classList.add('active');
+  document.getElementById('twViewTable').classList.remove('active');
+  twRenderAll();
+});
+
+// Date nav
+document.getElementById('twDatePicker').addEventListener('change', (e) => twLoadDate(e.target.value));
+document.getElementById('twPrevDay').addEventListener('click', () => twNavigateDate(-1));
+document.getElementById('twNextDay').addEventListener('click', () => twNavigateDate(1));
+
+function twNavigateDate(offset) {
+  const idx = twDates.indexOf(twCurrentDate);
+  const newIdx = idx + offset;
+  if (newIdx >= 0 && newIdx < twDates.length) twLoadDate(twDates[newIdx]);
+}
+
+function twLoadDate(dateStr) {
+  if (!twHistoryData[dateStr]) return;
+  twCurrentDate = dateStr;
+  document.getElementById('twDatePicker').value = dateStr;
+  twAllData = twHistoryData[dateStr];
+  const idx = twDates.indexOf(dateStr);
+  document.getElementById('twPrevDay').disabled = idx <= 0;
+  document.getElementById('twNextDay').disabled = idx >= twDates.length - 1;
+  document.getElementById('twDateInfo').textContent = `${idx + 1} / ${twDates.length} 日分のデータ`;
+  twRenderAll();
+}
+
+// Sort & search
+document.getElementById('twSortSelect').addEventListener('change', (e) => {
+  const [key, dir] = e.target.value.split('-');
+  twCurrentSort = { key, desc: dir === 'desc' };
+  twRenderAll();
+});
+document.getElementById('twSearchInput').addEventListener('input', () => twRenderAll());
+
+// Auto-load tweet_history.json
+function loadTwitterData() {
+  fetch('tweet_history.json')
+    .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+    .then(text => {
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      twHistoryData = JSON.parse(text);
+      twDates = Object.keys(twHistoryData).sort();
+      if (twDates.length > 0) {
+        const picker = document.getElementById('twDatePicker');
+        picker.min = twDates[0];
+        picker.max = twDates[twDates.length - 1];
+        twLoadDate(twDates[twDates.length - 1]);
+      }
+    })
+    .catch(() => {});
+}
+if (sessionStorage.getItem('vtr_auth') === '1') loadTwitterData();
+
+// Render
+function twRenderAll() {
+  const query = document.getElementById('twSearchInput').value.toLowerCase();
+  let data = twAllData.filter(d =>
+    !query || (d.text||'').toLowerCase().includes(query)
+          || (d.author_name||'').toLowerCase().includes(query)
+          || (d.author_username||'').toLowerCase().includes(query)
+  );
+  data.sort((a, b) => {
+    let va = a[twCurrentSort.key], vb = b[twCurrentSort.key];
+    if (typeof va === 'string') { va = va.toLowerCase(); vb = (vb||'').toLowerCase(); }
+    if (va < vb) return twCurrentSort.desc ? 1 : -1;
+    if (va > vb) return twCurrentSort.desc ? -1 : 1;
+    return 0;
+  });
+
+  // Stats
+  const statsArea = document.getElementById('twStatsArea');
+  if (data.length > 0) {
+    const totalLikes = data.reduce((s, d) => s + (d.like_count||0), 0);
+    const totalRT = data.reduce((s, d) => s + (d.retweet_count||0), 0);
+    const totalImps = data.reduce((s, d) => s + (d.impression_count||0), 0);
+    const maxLikes = Math.max(...data.map(d => d.like_count||0));
+    statsArea.innerHTML = `
+      <div class="stat-card"><div class="value">${data.length}</div><div class="label">ランクインツイート数</div></div>
+      <div class="stat-card"><div class="value">${totalLikes.toLocaleString()}</div><div class="label">合計いいね</div></div>
+      <div class="stat-card"><div class="value">${totalRT.toLocaleString()}</div><div class="label">合計RT</div></div>
+      <div class="stat-card"><div class="value">${totalImps.toLocaleString()}</div><div class="label">合計インプレッション</div></div>
+    `;
+  } else { statsArea.innerHTML = ''; }
+
+  const tableContainer = document.getElementById('twTableContainer');
+  const gridContainer = document.getElementById('twGridContainer');
+
+  if (twCurrentView === 'grid') {
+    tableContainer.style.display = 'none';
+    gridContainer.style.display = '';
+    twRenderGrid(data);
+  } else {
+    tableContainer.style.display = '';
+    gridContainer.style.display = 'none';
+    twRenderTable(data);
+  }
+}
+
+function twRenderTable(data) {
+  const table = document.getElementById('twRankingTable');
+  const empty = document.getElementById('twEmptyState');
+  const tbody = document.getElementById('twTableBody');
+
+  if (data.length === 0 && twAllData.length === 0 && twDates.length === 0) {
+    table.style.display = 'none'; empty.style.display = 'block'; return;
+  }
+  table.style.display = 'table'; empty.style.display = 'none';
+
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#666;padding:40px;">この日のデータには検索結果がありません</td></tr>';
+    return;
+  }
+
+  const maxLikes = Math.max(...data.map(d => d.like_count||0), 1);
+
+  tbody.innerHTML = data.map((d, i) => {
+    const rank = i + 1;
+    const rankClass = rank <= 3 ? ` rank-${rank}` : '';
+    const iconHtml = d.author_icon_url
+      ? `<img src="${esc(d.author_icon_url)}" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">`
+      : '';
+    const linkHtml = d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" class="link-btn" style="background:#1da1f2;">開く</a>` : '';
+    const posted = (d.posted_at||'').slice(0, 10);
+    const tweetText = esc((d.text||'').slice(0, 120)).replace(/\n/g, ' ');
+
+    return `<tr>
+      <td class="rank${rankClass}">${rank}</td>
+      <td style="text-align:center;">${iconHtml}</td>
+      <td class="channel-cell" title="@${esc(d.author_username||'')}">${esc(d.author_name||'')}<br><span style="font-size:11px;color:#888;">@${esc(d.author_username||'')}</span></td>
+      <td class="title-cell" style="max-width:320px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${tweetText}</td>
+      <td class="num" style="color:#e94560;font-weight:bold;">${(d.like_count||0).toLocaleString()}</td>
+      <td class="num">${(d.retweet_count||0).toLocaleString()}</td>
+      <td class="num">${(d.impression_count||0).toLocaleString()}</td>
+      <td class="num">${(d.quote_count||0).toLocaleString()}</td>
+      <td class="num">${(d.reply_count||0).toLocaleString()}</td>
+      <td>${posted}</td>
+      <td>${linkHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+function twRenderGrid(data) {
+  const gridContainer = document.getElementById('twGridContainer');
+
+  if (data.length === 0) {
+    gridContainer.innerHTML = '<div class="empty-state"><p>この日のデータには検索結果がありません</p></div>';
+    return;
+  }
+
+  gridContainer.innerHTML = data.map((d, i) => {
+    const rank = i + 1;
+    const rankColor = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+    const link = d.url ? esc(d.url) : '#';
+    const iconSrc = d.author_icon_url ? esc(d.author_icon_url) : '';
+    const tweetText = esc((d.text||'').slice(0, 140)).replace(/\n/g, ' ');
+    const posted = (d.posted_at||'').slice(0, 10);
+
+    // メディア画像があれば表示、なければアイコン拡大
+    const mediaUrl = (d.media_urls && d.media_urls.length > 0) ? esc(d.media_urls[0]) : '';
+    const thumbHtml = mediaUrl
+      ? `<img class="grid-card-thumb" src="${mediaUrl}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+         <div class="grid-card-thumb" style="display:none;background:#1a1a2e;align-items:center;justify-content:center;padding:16px;">
+           ${iconSrc ? `<img src="${iconSrc}" style="width:64px;height:64px;border-radius:50%;" onerror="this.outerHTML='<span style=color:#1da1f2;font-size:36px>&#x1D54F;</span>'">` : '<span style="color:#1da1f2;font-size:36px">&#x1D54F;</span>'}
+         </div>`
+      : `<div class="grid-card-thumb" style="background:#1a1a2e;display:flex;align-items:center;justify-content:center;padding:16px;">
+           ${iconSrc ? `<img src="${iconSrc}" style="width:64px;height:64px;border-radius:50%;" onerror="this.outerHTML='<span style=color:#1da1f2;font-size:36px>&#x1D54F;</span>'">` : '<span style="color:#1da1f2;font-size:36px">&#x1D54F;</span>'}
+         </div>`;
+
+    return `<a href="${link}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+      <div class="grid-card">
+        <div class="grid-card-rank ${rankColor}">${rank}</div>
+        <div class="grid-card-growth" style="background:rgba(29,161,242,0.9);">${formatNum(d.like_count||0)}</div>
+        ${thumbHtml}
+        <div class="grid-card-body">
+          <div class="grid-card-channel" style="margin-bottom:4px;">
+            ${iconSrc ? `<img src="${iconSrc}" style="width:20px;height:20px;border-radius:50%;vertical-align:middle;margin-right:4px;" onerror="this.style.display='none'">` : ''}
+            ${esc(d.author_name||'')} <span style="color:#888;font-size:11px;">@${esc(d.author_username||'')}</span>
+          </div>
+          <div class="grid-card-title" style="font-size:12px;line-height:1.4;-webkit-line-clamp:4;">${tweetText}</div>
+          <div style="font-size:11px;color:#666;margin-top:4px;">${posted}</div>
+          <div class="grid-card-stats">
+            <div class="stat-item"><span class="val" style="color:#e94560;">${formatNum(d.like_count||0)}</span><span class="stat-label">いいね</span></div>
+            <div class="stat-item"><span class="val">${formatNum(d.retweet_count||0)}</span><span class="stat-label">RT</span></div>
+            <div class="stat-item"><span class="val">${formatNum(d.impression_count||0)}</span><span class="stat-label">インプ</span></div>
+          </div>
+        </div>
+      </div>
+    </a>`;
+  }).join('');
+}
+
+// Column header sort (Twitter)
+document.querySelectorAll('thead th[data-twcol]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.twcol;
+    if (twCurrentSort.key === col) twCurrentSort.desc = !twCurrentSort.desc;
+    else twCurrentSort = { key: col, desc: true };
+    const sel = document.getElementById('twSortSelect');
+    const val = `${col}-${twCurrentSort.desc ? 'desc' : 'asc'}`;
+    for (const opt of sel.options) { if (opt.value === val) { sel.value = val; break; } }
+    twRenderAll();
   });
 });
 
