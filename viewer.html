@@ -711,6 +711,76 @@
   .compare-insight .ci-icon { font-size: 16px; margin-right: 8px; }
   .compare-insight strong { color: #e94560; }
   .compare-insight .blue { color: #4fc3f7; }
+
+  /* パターンカード（共通点・相違点） */
+  .pattern-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 12px; }
+  .pattern-card { background: #0f0f1a; border-radius: 10px; padding: 16px; border-left: 4px solid #4caf50; }
+  .pattern-card.diff { border-left-color: #ff9800; }
+  .pattern-card.kojin-win { border-left-color: #e94560; }
+  .pattern-card.all-win { border-left-color: #4fc3f7; }
+  .pattern-card h4 { font-size: 14px; color: #fff; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .pattern-card p { font-size: 12px; color: #aaa; line-height: 1.6; margin: 0; }
+  .pattern-card .val { font-weight: bold; }
+  .pattern-card .val-kojin { color: #e94560; }
+  .pattern-card .val-all { color: #4fc3f7; }
+
+  /* デュアルバー（2色比較） */
+  .dual-bar-wrap { display: flex; flex-direction: column; gap: 10px; }
+  .dual-bar-item { display: flex; align-items: center; gap: 10px; }
+  .dual-bar-item .db-label { min-width: 70px; font-size: 12px; color: #ccc; text-align: right; }
+  .dual-bar-item .db-bars { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .dual-bar-item .db-bar { height: 18px; border-radius: 3px; display: flex; align-items: center; padding: 0 8px; font-size: 10px; color: #fff; font-weight: bold; min-width: 24px; transition: width 0.4s; }
+  .dual-bar-item .db-bar.kojin { background: linear-gradient(90deg, #e94560, #f9844a); }
+  .dual-bar-item .db-bar.all { background: linear-gradient(90deg, #4fc3f7, #2196f3); }
+  .dual-bar-item .db-count { min-width: 40px; font-size: 11px; color: #666; }
+
+  /* 感情レーダー */
+  .emotion-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .emotion-card { background: #0f0f1a; border-radius: 8px; padding: 12px; text-align: center; }
+  .emotion-card .em-icon { font-size: 24px; }
+  .emotion-card .em-label { font-size: 11px; color: #888; margin: 4px 0; }
+  .emotion-card .em-value { font-size: 20px; font-weight: bold; color: #e94560; }
+  .emotion-card .em-sub { font-size: 10px; color: #555; }
+
+  /* ジャンル分析 */
+  .genre-chart { display: flex; flex-wrap: wrap; gap: 8px; }
+  .genre-tag { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: bold; border: 1px solid #333; }
+
+  /* サブセクションヘッダ */
+  .sub-header { font-size: 15px; color: #fff; margin: 16px 0 10px; padding-bottom: 6px; border-bottom: 1px solid #333; display: flex; align-items: center; gap: 8px; }
+  .sub-header .badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: bold; }
+  .sub-header .badge-kojin { background: rgba(233,69,96,0.2); color: #e94560; }
+  .sub-header .badge-all { background: rgba(79,195,247,0.2); color: #4fc3f7; }
+
+  /* Two-tone comparison bar */
+  .dual-bar-chart { margin-bottom: 8px; }
+  .dual-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .dual-bar-label { min-width: 70px; font-size: 12px; color: #ccc; text-align: right; }
+  .dual-bar-container { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .dual-bar { height: 16px; border-radius: 3px; display: flex; align-items: center; padding: 0 6px; font-size: 10px; color: #fff; font-weight: bold; min-width: 20px; }
+  .dual-bar.kojin { background: linear-gradient(90deg, #e94560, #f9844a); }
+  .dual-bar.all { background: linear-gradient(90deg, #4fc3f7, #2196f3); }
+
+  /* Common/Difference cards */
+  .pattern-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .pattern-card { background: #0f0f1a; border-radius: 10px; padding: 16px; border-left: 4px solid #4caf50; }
+  .pattern-card.diff { border-left-color: #ff9800; }
+  .pattern-card.kojin-win { border-left-color: #e94560; }
+  .pattern-card.all-win { border-left-color: #4fc3f7; }
+  .pattern-card h4 { font-size: 14px; color: #fff; margin-bottom: 6px; }
+  .pattern-card p { font-size: 12px; color: #aaa; line-height: 1.6; }
+
+  /* Section labels */
+  .section-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .section-tab { padding: 6px 16px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid #333; color: #aaa; background: transparent; }
+  .section-tab.active { background: #e94560; color: #fff; border-color: #e94560; }
+
+  /* Legend for dual bars */
+  .dual-legend { display: flex; gap: 16px; margin-bottom: 12px; font-size: 12px; color: #aaa; }
+  .dual-legend-item { display: flex; align-items: center; gap: 6px; }
+  .dual-legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+  .dual-legend-dot.kojin { background: linear-gradient(90deg, #e94560, #f9844a); }
+  .dual-legend-dot.all { background: linear-gradient(90deg, #4fc3f7, #2196f3); }
 </style>
 </head>
 <body>
@@ -1995,6 +2065,150 @@ function analyzeDataset(items) {
     return avg > bestAvg ? [label, data] : best;
   }, Object.entries(subBands)[0]);
 
+  // --- 10. エンゲージメント率 ---
+  let totalCommentRate = 0;
+  const commentRates = [];
+  for (const d of items) {
+    const rate = d.views > 0 ? (d.comments || 0) / d.views * 100 : 0;
+    commentRates.push({ ...d, commentRate: rate });
+    totalCommentRate += rate;
+  }
+  const avgCommentRate = items.length > 0 ? (totalCommentRate / items.length) : 0;
+  const highEngagementCount = commentRates.filter(d => d.commentRate > avgCommentRate).length;
+  // コメント効率（コメント数/秒）
+  const avgCommentPerSec = items.length > 0
+    ? (items.reduce((s,d) => s + ((d.comments||0) / Math.max(d.duration||1, 1)), 0) / items.length).toFixed(2) : 0;
+
+  // --- 11. 伸び率分布 ---
+  const growthDist = { '3-5x':0, '5-10x':0, '10-20x':0, '20-50x':0, '50-100x':0, '100x+':0 };
+  for (const d of items) {
+    const g = d.growth_rate || 0;
+    if (g >= 100) growthDist['100x+']++;
+    else if (g >= 50) growthDist['50-100x']++;
+    else if (g >= 20) growthDist['20-50x']++;
+    else if (g >= 10) growthDist['10-20x']++;
+    else if (g >= 5) growthDist['5-10x']++;
+    else growthDist['3-5x']++;
+  }
+  const pctAbove10x = items.length > 0 ? Math.round(items.filter(d=>(d.growth_rate||0)>=10).length / items.length * 100) : 0;
+
+  // --- 12. タイトル文字数×伸び率 ---
+  const titleLenBuckets = { '1-10字':{c:0,g:0}, '11-20字':{c:0,g:0}, '21-30字':{c:0,g:0}, '31字+':{c:0,g:0} };
+  for (const d of items) {
+    const len = (d.title||'').replace(/#\S+/g,'').trim().length;
+    let k = '31字+';
+    if (len <= 10) k = '1-10字';
+    else if (len <= 20) k = '11-20字';
+    else if (len <= 30) k = '21-30字';
+    titleLenBuckets[k].c++;
+    titleLenBuckets[k].g += (d.growth_rate||0);
+  }
+
+  // --- 13. コメント数×伸び率 ---
+  const commentBuckets = { '10-30':{c:0,g:0}, '31-50':{c:0,g:0}, '51-100':{c:0,g:0}, '100+':{c:0,g:0} };
+  for (const d of items) {
+    const cm = d.comments || 0;
+    let k = '100+';
+    if (cm <= 30) k = '10-30';
+    else if (cm <= 50) k = '31-50';
+    else if (cm <= 100) k = '51-100';
+    commentBuckets[k].c++;
+    commentBuckets[k].g += (d.growth_rate||0);
+  }
+
+  // --- 14. 再生数分布 ---
+  const viewDist = { '~1万':{c:0,g:0}, '1-5万':{c:0,g:0}, '5-10万':{c:0,g:0}, '10万+':{c:0,g:0} };
+  for (const d of items) {
+    const v = d.views || 0;
+    let k = '10万+';
+    if (v < 10000) k = '~1万';
+    else if (v < 50000) k = '1-5万';
+    else if (v < 100000) k = '5-10万';
+    viewDist[k].c++;
+    viewDist[k].g += (d.growth_rate||0);
+  }
+
+  // --- 15. ループ性分析（15秒以下 vs 16秒以上） ---
+  const loopShort = items.filter(d => (d.duration||0) <= 15);
+  const loopLong = items.filter(d => (d.duration||0) > 15);
+  const loopShortAvg = loopShort.length > 0 ? (loopShort.reduce((s,d)=>s+(d.growth_rate||0),0)/loopShort.length).toFixed(1) : 0;
+  const loopLongAvg = loopLong.length > 0 ? (loopLong.reduce((s,d)=>s+(d.growth_rate||0),0)/loopLong.length).toFixed(1) : 0;
+
+  // --- 16. 注目度パターン ---
+  const attentionLevels = { '驚異的':0, '高水準':0, '堅調':0, 'その他':0 };
+  for (const d of items) {
+    if (!d.analysis) continue;
+    const attn = d.analysis.match(/【注目度】(.+?)(?:\n|$)/);
+    if (!attn) continue;
+    const txt = attn[1];
+    if (txt.includes('驚異的')) attentionLevels['驚異的']++;
+    else if (txt.includes('高水準')) attentionLevels['高水準']++;
+    else if (txt.includes('堅調')) attentionLevels['堅調']++;
+    else attentionLevels['その他']++;
+  }
+
+  // --- 17. コメントいいね数分析 ---
+  const commentLikes = [];
+  for (const d of items) {
+    if (!d.analysis) continue;
+    const m = d.analysis.match(/いいね(\d[\d,]*)件/);
+    if (m) {
+      const likes = parseInt(m[1].replace(/,/g,''));
+      commentLikes.push({ ...d, commentLikeCount: likes });
+    }
+  }
+  commentLikes.sort((a,b) => b.commentLikeCount - a.commentLikeCount);
+  const avgCommentLikes = commentLikes.length > 0 ? Math.round(commentLikes.reduce((s,d)=>s+d.commentLikeCount,0)/commentLikes.length) : 0;
+
+  // --- 18. コンテンツジャンル分類 ---
+  const genres = { '歌・音楽':0, 'ゲーム':0, 'トーク・雑談':0, 'コメディ':0, 'あるある':0, 'チャレンジ':0, 'デビュー・初配信':0, 'コラボ':0, 'その他':0 };
+  for (const d of items) {
+    const t = (d.title||'').toLowerCase();
+    if (/歌ってみた|歌枠|カバー|bgm|sing|cover/.test(t)) genres['歌・音楽']++;
+    else if (/ゲーム|game|プレイ|実況|マイクラ|apax|valorant|ガンプラ/.test(t)) genres['ゲーム']++;
+    else if (/雑談|トーク|質問|自己紹介|日常/.test(t)) genres['トーク・雑談']++;
+    else if (/コント|ネタ|面白|おもしろ|笑/.test(t)) genres['コメディ']++;
+    else if (/あるある/.test(t)) genres['あるある']++;
+    else if (/やってみた|チャレンジ|挑戦|検証/.test(t)) genres['チャレンジ']++;
+    else if (/デビュー|初配信|準備中|新人/.test(t)) genres['デビュー・初配信']++;
+    else if (/コラボ|feat|×/.test(t)) genres['コラボ']++;
+    else genres['その他']++;
+  }
+
+  // --- 19. バイラルスコア指標 ---
+  const viralBreakouts = items.filter(d => (d.growth_rate||0) >= 20 && (d.subscribers||0) < 5000);
+  const nonSubReach = items.map(d => Math.max((d.views||0)-(d.subscribers||0), 0));
+  const avgNonSubReach = items.length > 0 ? Math.round(nonSubReach.reduce((s,v)=>s+v,0)/items.length) : 0;
+
+  // --- 20. リピートクリエイター ---
+  const channelCount = {};
+  for (const d of items) {
+    channelCount[d.channel] = (channelCount[d.channel]||0) + 1;
+  }
+  const repeatCreators = Object.entries(channelCount).filter(([,c])=>c>=2).sort((a,b)=>b[1]-a[1]);
+
+  // --- 21. 感情カワード強度分析 ---
+  const emotionKeywords = {
+    '笑い・ユーモア': ['笑','草','www','ww','面白','おもろ','ワロタ'],
+    'かわいい・推し': ['かわいい','可愛い','推し','尊い','てぇてぇ'],
+    '驚き・衝撃': ['まじ','えっ','やば','衝撃','すご','天才','神'],
+    '共感・あるある': ['わかる','あるある','それな','共感'],
+    '応援・期待': ['頑張','応援','楽しみ','期待','好き'],
+  };
+  const emotionScores = {};
+  for (const [emo, kws] of Object.entries(emotionKeywords)) {
+    let count = 0;
+    for (const d of items) {
+      if (!d.analysis) continue;
+      const cm = d.analysis.match(/【人気コメント】「(.+?)」/);
+      if (!cm) continue;
+      for (const kw of kws) {
+        if (cm[1].includes(kw)) { count++; break; }
+      }
+    }
+    emotionScores[emo] = count;
+  }
+
   return {
     durationBuckets, bestDuration, topWords, topBuzzReasons, subBands, bestSubBand,
     top10, avgTopDuration, avgTopGrowth, avgTopSubs,
@@ -2004,6 +2218,14 @@ function analyzeDataset(items) {
     avgTitleLen, avgGrowthShort, avgGrowthLong, shortTitleCount, longTitleCount,
     avgGrowthAll, medianGrowth,
     totalItems: items.length,
+    // New metrics
+    avgCommentRate, highEngagementCount, avgCommentPerSec,
+    growthDist, pctAbove10x,
+    titleLenBuckets, commentBuckets, viewDist,
+    loopShortAvg, loopLongAvg, loopShortCount: loopShort.length, loopLongCount: loopLong.length,
+    attentionLevels, avgCommentLikes, commentLikes: commentLikes.slice(0,5),
+    genres, viralBreakouts, avgNonSubReach, repeatCreators: repeatCreators.slice(0,5),
+    emotionScores,
   };
 }
 
@@ -2053,73 +2275,108 @@ function renderHints() {
 
     // Insight texts
     const insights = [];
-    insights.push(`<div class="compare-insight"><span class="ci-icon">&#9202;</span> 個人VTuberは<strong>${k.bestDuration[0]}</strong>の動画が最もバズりやすい（平均${kBestDurAvg}x）のに対し、全体では<strong class="blue">${a.bestDuration[0]}</strong>が最適です（平均${aBestDurAvg}x）。</div>`);
-    if (k.topBuzzReasons.length > 0 && a.topBuzzReasons.length > 0) {
-      insights.push(`<div class="compare-insight"><span class="ci-icon">&#128293;</span> 個人VTuberのバズ要因は<strong>「${esc(k.topBuzzReasons[0][0]).substring(0, 25)}」</strong>が最多ですが、事務所系を含む全体では<strong class="blue">「${esc(a.topBuzzReasons[0][0]).substring(0, 25)}」</strong>が上位に。</div>`);
-    }
-    insights.push(`<div class="compare-insight"><span class="ci-icon">&#128101;</span> 個人VTuberは登録者<strong>${k.bestSubBand[0]}人</strong>帯が最もバズりやすく、全体では<strong class="blue">${a.bestSubBand[0]}人</strong>帯が有利です。</div>`);
-    if (Number(kAvgGrowth) !== Number(aAvgGrowth)) {
-      const diff = (Number(kAvgGrowth) - Number(aAvgGrowth)).toFixed(1);
-      const direction = Number(diff) > 0 ? '高い' : '低い';
-      insights.push(`<div class="compare-insight"><span class="ci-icon">&#128200;</span> 個人VTuberの平均伸び率（<strong>${kAvgGrowth}x</strong>）は全体（<strong class="blue">${aAvgGrowth}x</strong>）より${Math.abs(Number(diff)).toFixed(1)}x ${direction}傾向にあります。</div>`);
-    }
+    // --- Comparison Table Rows ---
+    const cmpRows = [
+      ['動画数', k.totalItems, a.totalItems, ''],
+      ['平均伸び率', kAvgGrowth+'x', aAvgGrowth+'x', ''],
+      ['中央値伸び率', k.medianGrowth.toFixed(1)+'x', a.medianGrowth.toFixed(1)+'x', ''],
+      ['TOP10 平均伸び率', k.avgTopGrowth+'x', a.avgTopGrowth+'x', ''],
+      ['TOP10 平均動画長', k.avgTopDuration+'秒', a.avgTopDuration+'秒', ''],
+      ['TOP10 平均登録者', formatNum(k.avgTopSubs), formatNum(a.avgTopSubs), ''],
+      ['最適な動画長', k.bestDuration[0], a.bestDuration[0], ''],
+      ['最適な投稿曜日', dayNames[k.bestDayIdx]+'曜日', dayNames[a.bestDayIdx]+'曜日', ''],
+      ['10x以上バズ率', k.pctAbove10x+'%', a.pctAbove10x+'%', ''],
+      ['平均コメント率', k.avgCommentRate.toFixed(3)+'%', a.avgCommentRate.toFixed(3)+'%', 'コメント数/再生数'],
+      ['平均タイトル文字数', k.avgTitleLen+'字', a.avgTitleLen+'字', 'ハッシュタグ除く'],
+      ['平均コメントいいね', k.avgCommentLikes+'件', a.avgCommentLikes+'件', 'トップコメント'],
+      ['非登録者リーチ', formatNum(k.avgNonSubReach), formatNum(a.avgNonSubReach), '再生数-登録者数'],
+    ];
+
+    // --- Common Points (共通点) ---
+    const commonPoints = [];
+    if (k.bestDuration[0] === a.bestDuration[0]) commonPoints.push({icon:'&#9202;', text:`両方とも<span class="val val-kojin">${k.bestDuration[0]}</span>の動画が最もバズりやすい`});
+    if (k.topBuzzReasons.length>0 && a.topBuzzReasons.length>0 && k.topBuzzReasons[0][0] === a.topBuzzReasons[0][0]) commonPoints.push({icon:'&#128293;', text:`バズ要因1位が共通：<span class="val">${esc(k.topBuzzReasons[0][0]).substring(0,30)}</span>`});
+    if (k.bestSubBand[0] === a.bestSubBand[0]) commonPoints.push({icon:'&#128101;', text:`バズしやすい登録者帯が共通：<span class="val">${k.bestSubBand[0]}人</span>`});
+    if (dayNames[k.bestDayIdx] === dayNames[a.bestDayIdx]) commonPoints.push({icon:'&#128197;', text:`最適投稿曜日が共通：<span class="val">${dayNames[k.bestDayIdx]}曜日</span>`});
+    // Check emotion pattern similarity
+    const kTopEmo = Object.entries(k.emotionScores).sort((x,y)=>y[1]-x[1])[0];
+    const aTopEmo = Object.entries(a.emotionScores).sort((x,y)=>y[1]-x[1])[0];
+    if (kTopEmo && aTopEmo && kTopEmo[0] === aTopEmo[0]) commonPoints.push({icon:'&#128150;', text:`視聴者の反応パターン1位が共通：<span class="val">${kTopEmo[0]}</span>`});
+
+    // --- Differences (相違点) ---
+    const diffPoints = [];
+    if (k.bestDuration[0] !== a.bestDuration[0]) diffPoints.push({icon:'&#9202;', text:`個人は<span class="val val-kojin">${k.bestDuration[0]}</span>が最適、全体は<span class="val val-all">${a.bestDuration[0]}</span>が最適`});
+    const growthDiff = (Number(kAvgGrowth) - Number(aAvgGrowth)).toFixed(1);
+    if (Math.abs(growthDiff) >= 1) diffPoints.push({icon:'&#128200;', text:`平均伸び率：個人<span class="val val-kojin">${kAvgGrowth}x</span> vs 全体<span class="val val-all">${aAvgGrowth}x</span>（差 ${Math.abs(growthDiff)}x）`});
+    if (k.bestSubBand[0] !== a.bestSubBand[0]) diffPoints.push({icon:'&#128101;', text:`バズ帯：個人は<span class="val val-kojin">${k.bestSubBand[0]}人</span>帯、全体は<span class="val val-all">${a.bestSubBand[0]}人</span>帯`});
+    if (Math.abs(k.pctAbove10x - a.pctAbove10x) >= 5) diffPoints.push({icon:'&#127775;', text:`10x超え率：個人<span class="val val-kojin">${k.pctAbove10x}%</span> vs 全体<span class="val val-all">${a.pctAbove10x}%</span>`});
+    if (k.topBuzzReasons.length>0 && a.topBuzzReasons.length>0 && k.topBuzzReasons[0][0] !== a.topBuzzReasons[0][0]) diffPoints.push({icon:'&#128293;', text:`バズ要因1位：個人<span class="val val-kojin">「${esc(k.topBuzzReasons[0][0]).substring(0,20)}」</span> vs 全体<span class="val val-all">「${esc(a.topBuzzReasons[0][0]).substring(0,20)}」</span>`});
+
+    // --- Kojin wins / All wins ---
+    const kojinWins = [];
+    const allWins = [];
+    if (Number(k.loopShortAvg) > Number(a.loopShortAvg)) kojinWins.push('短尺(15秒以下)のバズ力'); else if (Number(a.loopShortAvg) > Number(k.loopShortAvg)) allWins.push('短尺(15秒以下)のバズ力');
+    if (k.avgCommentRate > a.avgCommentRate) kojinWins.push('コメント率（エンゲージメント）'); else if (a.avgCommentRate > k.avgCommentRate) allWins.push('コメント率（エンゲージメント）');
+    if (k.viralBreakouts.length > a.viralBreakouts.length) kojinWins.push('小規模チャンネルのブレイクアウト数'); else if (a.viralBreakouts.length > k.viralBreakouts.length) allWins.push('小規模チャンネルのブレイクアウト数');
+    if (Number(k.avgTopGrowth) > Number(a.avgTopGrowth)) kojinWins.push('TOP10の爆発力'); else if (Number(a.avgTopGrowth) > Number(k.avgTopGrowth)) allWins.push('TOP10の爆発力');
+
+    // --- Growth Distribution dual bars ---
+    const growthDistKeys = Object.keys(k.growthDist);
+    const maxGD = Math.max(...growthDistKeys.map(key => Math.max(k.growthDist[key], a.growthDist[key])), 1);
+    const growthDistHtml = growthDistKeys.map(key => {
+      const kw = (k.growthDist[key]/maxGD*100).toFixed(0);
+      const aw = (a.growthDist[key]/maxGD*100).toFixed(0);
+      return `<div class="dual-bar-item">
+        <div class="db-label">${key}</div>
+        <div class="db-bars">
+          <div class="db-bar kojin" style="width:${Math.max(kw,5)}%">${k.growthDist[key]}</div>
+          <div class="db-bar all" style="width:${Math.max(aw,5)}%">${a.growthDist[key]}</div>
+        </div>
+      </div>`;
+    }).join('');
 
     comparisonHtml = `
     <div class="hint-section">
-      <h3><span class="h-icon">&#128202;</span> 個人VTuber vs 全体 比較分析</h3>
+      <h3><span class="h-icon">&#128202;</span> 個人VTuber vs 全体 徹底比較分析</h3>
       <div class="compare-vs">
         <span class="vs-label-kojin">個人VTuber</span>
         <span class="vs-badge">VS</span>
         <span class="vs-label-all">全体（事務所系含む）</span>
       </div>
       <table class="compare-table">
-        <thead>
-          <tr>
-            <th>指標</th>
-            <th class="col-kojin">個人VTuber</th>
-            <th class="col-all">全体</th>
-          </tr>
-        </thead>
+        <thead><tr><th>指標</th><th class="col-kojin">個人VTuber</th><th class="col-all">全体</th></tr></thead>
         <tbody>
-          <tr>
-            <td>動画数</td>
-            <td class="col-kojin"><span class="highlight-val">${k.totalItems}</span></td>
-            <td class="col-all"><span class="highlight-val-blue">${a.totalItems}</span></td>
-          </tr>
-          <tr>
-            <td>平均伸び率</td>
-            <td class="col-kojin"><span class="highlight-val">${kAvgGrowth}x</span></td>
-            <td class="col-all"><span class="highlight-val-blue">${aAvgGrowth}x</span></td>
-          </tr>
-          <tr>
-            <td>TOP10 平均伸び率</td>
-            <td class="col-kojin"><span class="highlight-val">${k.avgTopGrowth}x</span></td>
-            <td class="col-all"><span class="highlight-val-blue">${a.avgTopGrowth}x</span></td>
-          </tr>
-          <tr>
-            <td>TOP10 平均動画長</td>
-            <td class="col-kojin"><span class="highlight-val">${k.avgTopDuration}秒</span></td>
-            <td class="col-all"><span class="highlight-val-blue">${a.avgTopDuration}秒</span></td>
-          </tr>
-          <tr>
-            <td>TOP10 平均登録者</td>
-            <td class="col-kojin"><span class="highlight-val">${formatNum(k.avgTopSubs)}</span></td>
-            <td class="col-all"><span class="highlight-val-blue">${formatNum(a.avgTopSubs)}</span></td>
-          </tr>
-          <tr>
-            <td>最適な動画長</td>
-            <td class="col-kojin"><span class="highlight-val">${k.bestDuration[0]}</span></td>
-            <td class="col-all"><span class="highlight-val-blue">${a.bestDuration[0]}</span></td>
-          </tr>
-          <tr>
-            <td>最適な投稿曜日</td>
-            <td class="col-kojin"><span class="highlight-val">${dayNames[k.bestDayIdx]}曜日</span></td>
-            <td class="col-all"><span class="highlight-val-blue">${dayNames[a.bestDayIdx]}曜日</span></td>
-          </tr>
+          ${cmpRows.map(([label, kv, av, note]) => `<tr><td>${label}${note ? ' <span style="font-size:10px;color:#666">'+note+'</span>' : ''}</td><td class="col-kojin"><span class="highlight-val">${kv}</span></td><td class="col-all"><span class="highlight-val-blue">${av}</span></td></tr>`).join('')}
         </tbody>
       </table>
-      <h4 style="color:#fff;font-size:15px;margin:20px 0 12px;">Key Insights</h4>
-      ${insights.join('')}
+
+      ${commonPoints.length > 0 ? `
+      <div class="sub-header">&#129309; 共通点</div>
+      <div class="pattern-cards">
+        ${commonPoints.map(p => `<div class="pattern-card"><h4>${p.icon} 共通</h4><p>${p.text}</p></div>`).join('')}
+      </div>` : ''}
+
+      ${diffPoints.length > 0 ? `
+      <div class="sub-header">&#128260; 相違点</div>
+      <div class="pattern-cards">
+        ${diffPoints.map(p => `<div class="pattern-card diff"><h4>${p.icon} 違い</h4><p>${p.text}</p></div>`).join('')}
+      </div>` : ''}
+
+      ${kojinWins.length > 0 || allWins.length > 0 ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">
+        <div>
+          <div class="sub-header"><span class="badge badge-kojin">個人VTuber</span> が勝っている点</div>
+          ${kojinWins.length > 0 ? kojinWins.map(w => `<div class="pattern-card kojin-win"><p>${w}</p></div>`).join('') : '<div style="color:#666;font-size:12px;">特になし</div>'}
+        </div>
+        <div>
+          <div class="sub-header"><span class="badge badge-all">大手含む全体</span> が勝っている点</div>
+          ${allWins.length > 0 ? allWins.map(w => `<div class="pattern-card all-win"><p>${w}</p></div>`).join('') : '<div style="color:#666;font-size:12px;">特になし</div>'}
+        </div>
+      </div>` : ''}
+
+      <div class="sub-header">&#128200; 伸び率分布比較</div>
+      <p style="color:#aaa;font-size:11px;margin-bottom:8px;"><span style="color:#e94560;">&#9632;</span> 個人VTuber <span style="color:#4fc3f7;margin-left:12px;">&#9632;</span> 全体</p>
+      <div class="dual-bar-wrap">${growthDistHtml}</div>
     </div>`;
   }
 
@@ -2357,6 +2614,167 @@ function renderHints() {
         }).join('')}
       </div>
     </div>
+
+    ${hasComparison ? `
+    <!-- 全体ランキング TOP10 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#127942;</span> 参考：伸び率TOP10（全体 お手本動画）</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">事務所系を含む全体ランキングのTOP10。大手の戦略を研究しましょう。</p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        ${a.top10.map((d, i) => {
+          const vidMatch = (d.url || '').match(/shorts\/([a-zA-Z0-9_-]+)/);
+          const videoId = vidMatch ? vidMatch[1] : '';
+          const thumbSrc = videoId ? 'https://i.ytimg.com/vi/' + videoId + '/oar2.jpg' : '';
+          return '<div style="display:flex;gap:12px;align-items:center;background:#0f0f1a;border-radius:8px;padding:10px 14px;border-left:3px solid #4fc3f7;">' +
+            '<div style="font-size:20px;font-weight:bold;color:' + (i<3?'#ffd700':'#4fc3f7') + ';min-width:30px;">' + (i+1) + '</div>' +
+            (thumbSrc ? '<img src="' + thumbSrc + '" style="width:40px;height:54px;object-fit:cover;border-radius:4px;" onerror="this.style.display=\'none\'">' : '') +
+            '<div style="flex:1;min-width:0;">' +
+            '<div style="font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(d.title) + '</div>' +
+            '<div style="font-size:11px;color:#888;">' + esc(d.channel) + ' / ' + (d.subscribers||0).toLocaleString() + '人</div>' +
+            '</div>' +
+            '<div style="text-align:right;">' +
+            '<div style="font-size:16px;font-weight:bold;color:#4fc3f7;">' + d.growth_rate + 'x</div>' +
+            '<div style="font-size:10px;color:#888;">' + (d.views||0).toLocaleString() + ' 再生</div>' +
+            '</div>' +
+            (d.url ? '<a href="' + esc(d.url) + '" target="_blank" rel="noopener" class="link-btn" style="font-size:11px;background:#4fc3f7;">見る</a>' : '') +
+            '</div>';
+        }).join('')}
+      </div>
+    </div>` : ''}
+
+    <!-- エンゲージメント分析 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128172;</span> エンゲージメント分析</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">コメント率が高いほどアルゴリズムに評価されやすい（コメントはいいねの3倍重要）</p>
+      <div class="score-meters">
+        <div class="score-meter">
+          <div class="sm-label">平均コメント率</div>
+          <div class="sm-value">${primary.avgCommentRate.toFixed(3)}%</div>
+          <div class="sm-sub">コメント数÷再生数</div>
+        </div>
+        <div class="score-meter">
+          <div class="sm-label">高エンゲージ動画</div>
+          <div class="sm-value">${primary.highEngagementCount}件</div>
+          <div class="sm-sub">平均以上のコメント率</div>
+        </div>
+        <div class="score-meter">
+          <div class="sm-label">コメント効率</div>
+          <div class="sm-value">${primary.avgCommentPerSec}/秒</div>
+          <div class="sm-sub">1秒あたりコメント数</div>
+        </div>
+        <div class="score-meter">
+          <div class="sm-label">トップコメントいいね</div>
+          <div class="sm-value">${primary.avgCommentLikes}件</div>
+          <div class="sm-sub">人気コメント平均</div>
+        </div>
+      </div>
+      ${hasComparison ? `<p style="color:#888;font-size:12px;margin-top:10px;">比較：個人 <span style="color:#e94560">${k.avgCommentRate.toFixed(3)}%</span> vs 全体 <span style="color:#4fc3f7">${a.avgCommentRate.toFixed(3)}%</span> → ${k.avgCommentRate > a.avgCommentRate ? '<span style="color:#e94560">個人の方がコメント率が高い</span>（コミュニティの結束力）' : '<span style="color:#4fc3f7">全体の方がコメント率が高い</span>（知名度による議論活性化）'}</p>` : ''}
+    </div>
+
+    <!-- 感情キーワード分析 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128150;</span> 視聴者の感情反応パターン</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">バズ動画のコメントに現れる視聴者の感情カテゴリ。どの感情を狙うかが企画の鍵。</p>
+      <div class="emotion-grid">
+        ${Object.entries(primary.emotionScores).sort((x,y)=>y[1]-x[1]).map(([emo, count], idx) => {
+          const icons = {'笑い・ユーモア':'&#128514;','かわいい・推し':'&#128149;','驚き・衝撃':'&#128562;','共感・あるある':'&#129309;','応援・期待':'&#128170;'};
+          const pct = primary.totalItems > 0 ? Math.round(count / primary.totalItems * 100) : 0;
+          return '<div class="emotion-card">' +
+            '<div class="em-icon">' + (icons[emo]||'&#128200;') + '</div>' +
+            '<div class="em-label">' + emo + '</div>' +
+            '<div class="em-value">' + pct + '%</div>' +
+            '<div class="em-sub">' + count + '件 / ' + primary.totalItems + '件</div>' +
+            '</div>';
+        }).join('')}
+      </div>
+      ${hasComparison ? `<p style="color:#888;font-size:12px;margin-top:10px;">個人1位: <span style="color:#e94560">${Object.entries(k.emotionScores).sort((x,y)=>y[1]-x[1])[0]?.[0]||'-'}</span> / 全体1位: <span style="color:#4fc3f7">${Object.entries(a.emotionScores).sort((x,y)=>y[1]-x[1])[0]?.[0]||'-'}</span></p>` : ''}
+    </div>
+
+    <!-- ループ性分析 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128257;</span> ループ性分析（短尺 vs 長尺）</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">15秒以下の動画はリプレイ・ループされやすく、アルゴリズムに有利。再生完了率が高いほど拡散されます。</p>
+      <div class="score-meters">
+        <div class="score-meter">
+          <div class="sm-label">15秒以下の平均伸び率</div>
+          <div class="sm-value" style="color:${Number(primary.loopShortAvg)>=Number(primary.loopLongAvg)?'#4caf50':'#e94560'}">${primary.loopShortAvg}x</div>
+          <div class="sm-sub">${primary.loopShortCount}件</div>
+        </div>
+        <div class="score-meter">
+          <div class="sm-label">16秒以上の平均伸び率</div>
+          <div class="sm-value" style="color:${Number(primary.loopLongAvg)>=Number(primary.loopShortAvg)?'#4caf50':'#e94560'}">${primary.loopLongAvg}x</div>
+          <div class="sm-sub">${primary.loopLongCount}件</div>
+        </div>
+        <div class="score-meter">
+          <div class="sm-label">判定</div>
+          <div class="sm-value" style="font-size:16px;color:#fff">${Number(primary.loopShortAvg)>=Number(primary.loopLongAvg)?'&#128257; 短尺有利':'&#128250; 長尺有利'}</div>
+          <div class="sm-sub">現在のデータでの傾向</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- コンテンツジャンル分析 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#127916;</span> コンテンツジャンル分析</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">どのジャンルの動画がランキングに入りやすいか</p>
+      <div class="genre-chart">
+        ${Object.entries(primary.genres).filter(([,c])=>c>0).sort((x,y)=>y[1]-x[1]).map(([genre, count]) => {
+          const colors = {'歌・音楽':'#e91e63','ゲーム':'#9c27b0','トーク・雑談':'#ff9800','コメディ':'#ffd700','あるある':'#4caf50','チャレンジ':'#00bcd4','デビュー・初配信':'#f44336','コラボ':'#2196f3','その他':'#607d8b'};
+          return '<span class="genre-tag" style="background:' + (colors[genre]||'#333') + '22;color:' + (colors[genre]||'#aaa') + ';border-color:' + (colors[genre]||'#333') + '">' + genre + ' (' + count + ')</span>';
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- タイトル文字数×伸び率 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128207;</span> タイトル文字数と伸び率の関係</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">最適なタイトルの長さ（モバイルでは35文字以上は切れます）</p>
+      <div class="h-bar-chart">
+        ${Object.entries(primary.titleLenBuckets).map(([label, data]) => {
+          const avg = data.c > 0 ? (data.g / data.c).toFixed(1) : 0;
+          const maxC = Math.max(...Object.values(primary.titleLenBuckets).map(b => b.c), 1);
+          const width = (data.c / maxC * 100).toFixed(0);
+          return '<div class="h-bar-row"><div class="h-bar-label">' + label + '</div><div class="h-bar-track"><div class="h-bar-fill" style="width:' + width + '%">平均' + avg + 'x</div></div><div class="h-bar-count">' + data.c + '件</div></div>';
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- コメント数×伸び率 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128172;</span> コメント数と伸び率の関係</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">コメント数が多いほどアルゴリズムに有利（コメントは「いいね」の3倍重要と言われています）</p>
+      <div class="h-bar-chart">
+        ${Object.entries(primary.commentBuckets).map(([label, data]) => {
+          const avg = data.c > 0 ? (data.g / data.c).toFixed(1) : 0;
+          const maxC = Math.max(...Object.values(primary.commentBuckets).map(b => b.c), 1);
+          const width = (data.c / maxC * 100).toFixed(0);
+          return '<div class="h-bar-row"><div class="h-bar-label">' + label + 'コメ</div><div class="h-bar-track"><div class="h-bar-fill" style="width:' + width + '%">平均' + avg + 'x</div></div><div class="h-bar-count">' + data.c + '件</div></div>';
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- 注目度レベル分布 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#127775;</span> 注目度レベル分布</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">AI分析による動画の注目度評価の分布</p>
+      <div class="score-meters">
+        ${Object.entries(primary.attentionLevels).map(([level, count]) => {
+          const colors = {'驚異的':'#ffd700','高水準':'#e94560','堅調':'#f9844a','その他':'#666'};
+          const pct = primary.totalItems > 0 ? Math.round(count / primary.totalItems * 100) : 0;
+          return '<div class="score-meter"><div class="sm-label">' + level + '</div><div class="sm-value" style="color:' + (colors[level]||'#e94560') + '">' + pct + '%</div><div class="sm-sub">' + count + '件</div></div>';
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- リピートクリエイター -->
+    ${primary.repeatCreators.length > 0 ? `
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128081;</span> 複数回ランクインしたクリエイター</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">バズの再現性が高いクリエイター。戦略を研究する価値があります。</p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${primary.repeatCreators.map(([ch, count]) => '<div style="display:flex;justify-content:space-between;align-items:center;background:#0f0f1a;border-radius:8px;padding:10px 16px;"><span style="color:#fff;font-size:14px;">' + esc(ch) + '</span><span style="color:#e94560;font-weight:bold;font-size:16px;">' + count + '回</span></div>').join('')}
+      </div>
+    </div>` : ''}
   `;
 
   // 初期化呼び出し
