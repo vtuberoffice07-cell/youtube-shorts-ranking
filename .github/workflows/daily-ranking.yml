@@ -43,11 +43,17 @@ jobs:
         run: python tiktok_ranking.py
         continue-on-error: true
 
+      - name: Run Twitter ranking
+        env:
+          APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
+        run: python tweet_ranking.py
+        continue-on-error: true
+
       - name: Commit and push results
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ranking_history.json ranking_output.csv ranking_all_history.json ranking_all_output.csv tiktok_history.json tiktok_output.csv
+          git add ranking_history.json ranking_output.csv ranking_all_history.json ranking_all_output.csv tiktok_history.json tiktok_output.csv tweet_history.json tweet_output.csv
           git diff --cached --quiet || git commit -m "ranking: $(date +%Y-%m-%d) のデータを追加"
           git pull --rebase origin main
           git push

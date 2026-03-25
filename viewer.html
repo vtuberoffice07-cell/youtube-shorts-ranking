@@ -932,6 +932,7 @@
   <button class="tab-btn" data-tab="twitter">Twitter</button>
   <button class="tab-btn" data-tab="trends">チャンネル推移</button>
   <button class="tab-btn" data-tab="hints">企画ヒント</button>
+  <button class="tab-btn" data-tab="tweethints">ツイートヒント</button>
 </div>
 
 <!-- Daily view -->
@@ -1134,6 +1135,13 @@
   </div>
 </div>
 
+<!-- ツイートヒント view -->
+<div id="tweetHintsView" style="display:none;">
+  <div class="hints-wrap" id="tweetHintsBody">
+    <div class="empty-state"><p>データを読み込み中...</p></div>
+  </div>
+</div>
+
 <div class="updated" id="updatedAt"></div>
 </div><!-- /mainContent -->
 
@@ -1213,11 +1221,13 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.getElementById('twitterView').style.display = tab === 'twitter' ? '' : 'none';
     document.getElementById('trendsView').style.display = tab === 'trends' ? '' : 'none';
     document.getElementById('hintsView').style.display = tab === 'hints' ? '' : 'none';
+    document.getElementById('tweetHintsView').style.display = tab === 'tweethints' ? '' : 'none';
     if (tab === 'allvtuber') allRenderAll();
     if (tab === 'tiktok') ttRenderAll();
     if (tab === 'twitter') twRenderAll();
     if (tab === 'trends') renderTrends();
     if (tab === 'hints') renderHints();
+    if (tab === 'tweethints') renderTweetHints();
   });
 });
 
@@ -3243,6 +3253,356 @@ function updateCheckProgress() {
 function resetChecklist() {
   localStorage.removeItem('buzzChecklist');
   initChecklist();
+}
+
+// ================================================================
+// ツイートヒント（Tweet Strategy Analysis）
+// ================================================================
+function renderTweetHints() {
+  const body = document.getElementById('tweetHintsBody');
+
+  // Collect all tweet data across all dates
+  const allTweets = [];
+  for (const date of twDates) {
+    const dayData = twHistoryData[date] || [];
+    for (const t of dayData) {
+      allTweets.push({...t, _date: date});
+    }
+  }
+
+  if (allTweets.length === 0) {
+    body.innerHTML = '<div class="empty-state"><p>ツイートデータがまだありません。</p><p style="font-size:14px;color:#555;">tweet_ranking.py を実行してデータを取得してください。</p></div>';
+    return;
+  }
+
+  // --- 1. Basic stats ---
+  const totalLikes = allTweets.reduce((s, t) => s + (t.like_count||0), 0);
+  const totalRT = allTweets.reduce((s, t) => s + (t.retweet_count||0), 0);
+  const totalImps = allTweets.reduce((s, t) => s + (t.impression_count||0), 0);
+  const avgLikes = Math.round(totalLikes / allTweets.length);
+  const avgRT = Math.round(totalRT / allTweets.length);
+  const avgImps = Math.round(totalImps / allTweets.length);
+
+  // Top 10 tweets by likes
+  const top10 = [...allTweets].sort((a, b) => (b.like_count||0) - (a.like_count||0)).slice(0, 10);
+  const top10AvgLikes = Math.round(top10.reduce((s, t) => s + (t.like_count||0), 0) / top10.length);
+
+  // --- 2. Text length analysis ---
+  const lenBuckets = {'1-50字':{c:0,likes:0,rt:0},'51-100字':{c:0,likes:0,rt:0},'101-140字':{c:0,likes:0,rt:0},'141字以上':{c:0,likes:0,rt:0}};
+  for (const t of allTweets) {
+    const len = (t.text||'').length;
+    let key = '141字以上';
+    if (len <= 50) key = '1-50字';
+    else if (len <= 100) key = '51-100字';
+    else if (len <= 140) key = '101-140字';
+    lenBuckets[key].c++;
+    lenBuckets[key].likes += (t.like_count||0);
+    lenBuckets[key].rt += (t.retweet_count||0);
+  }
+  const bestLen = Object.entries(lenBuckets).filter(([,v])=>v.c>0).sort((a,b) => (b[1].likes/b[1].c) - (a[1].likes/a[1].c))[0];
+
+  // --- 3. Hashtag analysis ---
+  const hashtagCount = {};
+  for (const t of allTweets) {
+    const tags = (t.text||'').match(/#[^\s#]+/g) || [];
+    for (const tag of tags) {
+      const lower = tag.toLowerCase();
+      if (!hashtagCount[lower]) hashtagCount[lower] = {count:0, likes:0, original: tag};
+      hashtagCount[lower].count++;
+      hashtagCount[lower].likes += (t.like_count||0);
+    }
+  }
+  const topHashtags = Object.values(hashtagCount).sort((a,b) => b.count - a.count).slice(0, 15);
+  const topHashtagsByLikes = Object.values(hashtagCount).filter(h=>h.count>=2).sort((a,b) => (b.likes/b.count) - (a.likes/a.count)).slice(0, 10);
+
+  // --- 4. Keyword analysis (content patterns) ---
+  const twStopWords = new Set(['の','は','が','を','に','で','と','も','た','だ','な','て','し','い','る','よ','か','ね','へ',
+    'から','まで','より','して','した','する','され','これ','それ','あれ','この','その','ある','いる',
+    'ない','なる','れる','られ','ので','のに','ため','こと','もの','です','ます','ました','ません',
+    'でした','という','ている','ていた','って','ので','てる','なん','いう','こんな','そんな','https']);
+  const kwCount = {};
+  for (const t of allTweets) {
+    const text = (t.text||'').replace(/https?:\/\/\S+/g, '').replace(/#\S+/g, '');
+    const katakana = text.match(/[\u30A1-\u30F6\u30FC]{3,12}/g) || [];
+    const kanji = text.match(/[\u4E00-\u9FFF]{2,6}/g) || [];
+    for (const w of [...katakana, ...kanji]) {
+      if (twStopWords.has(w) || w.length < 2) continue;
+      if (!kwCount[w]) kwCount[w] = {count:0, likes:0};
+      kwCount[w].count++;
+      kwCount[w].likes += (t.like_count||0);
+    }
+  }
+  const topKeywords = Object.entries(kwCount).filter(([,v])=>v.count>=2).sort((a,b) => b[1].count - a[1].count).slice(0, 20);
+
+  // --- 5. Media analysis ---
+  const withMedia = allTweets.filter(t => t.media_urls && t.media_urls.length > 0);
+  const noMedia = allTweets.filter(t => !t.media_urls || t.media_urls.length === 0);
+  const mediaAvgLikes = withMedia.length > 0 ? Math.round(withMedia.reduce((s,t) => s + (t.like_count||0), 0) / withMedia.length) : 0;
+  const noMediaAvgLikes = noMedia.length > 0 ? Math.round(noMedia.reduce((s,t) => s + (t.like_count||0), 0) / noMedia.length) : 0;
+
+  // --- 6. Engagement ratio analysis (RT/Like ratio) ---
+  const rtLikeRatios = allTweets.map(t => ({
+    ...t,
+    rtRatio: (t.like_count||0) > 0 ? ((t.retweet_count||0) / (t.like_count||0)) : 0,
+    impPerLike: (t.like_count||0) > 0 ? ((t.impression_count||0) / (t.like_count||0)) : 0,
+  }));
+  const avgRtRatio = (rtLikeRatios.reduce((s,t) => s + t.rtRatio, 0) / rtLikeRatios.length * 100).toFixed(1);
+  const highSpreadTweets = [...rtLikeRatios].sort((a,b) => b.rtRatio - a.rtRatio).slice(0, 5);
+
+  // --- 7. Posting time analysis (hour of day from posted_at) ---
+  const hourBuckets = {};
+  for (const t of allTweets) {
+    if (!t.posted_at) continue;
+    const match = t.posted_at.match(/T(\d{2}):/);
+    if (!match) continue;
+    const hour = parseInt(match[1]);
+    // Convert UTC to JST (+9)
+    const jstHour = (hour + 9) % 24;
+    const bucket = jstHour + '時';
+    if (!hourBuckets[bucket]) hourBuckets[bucket] = {c:0, likes:0};
+    hourBuckets[bucket].c++;
+    hourBuckets[bucket].likes += (t.like_count||0);
+  }
+  const hourEntries = Object.entries(hourBuckets).sort((a,b) => {
+    return parseInt(a[0]) - parseInt(b[0]);
+  });
+  const bestHour = hourEntries.filter(([,v])=>v.c>0).sort((a,b) => (b[1].likes/b[1].c) - (a[1].likes/a[1].c))[0];
+
+  // --- 8. Tweet type categorization ---
+  const categories = {
+    'お知らせ・告知': {keywords:['お知らせ','告知','デビュー','初配信','公開','発売','開始'], count:0, likes:0},
+    'イラスト・ビジュアル': {keywords:['イラスト','描','立ち絵','Live2D','L2D','ビジュアル','絵'], count:0, likes:0},
+    'フォロー祭り・交流': {keywords:['フォロー祭','フォロバ','フォロー','いいねした人','交流'], count:0, likes:0},
+    'おはよう・日常': {keywords:['おはよう','おはにゃ','おはいなり','いってらっしゃい','日常'], count:0, likes:0},
+    '意見・考察': {keywords:['思う','個人勢','事務所','VTuber','活動','リスナー','配信'], count:0, likes:0},
+    'ファンアート・創作': {keywords:['ファンアート','FA','描いて','踊ってみた','歌ってみた','short'], count:0, likes:0},
+  };
+  for (const t of allTweets) {
+    const text = (t.text||'').toLowerCase();
+    for (const [cat, info] of Object.entries(categories)) {
+      if (info.keywords.some(kw => text.includes(kw.toLowerCase()))) {
+        info.count++;
+        info.likes += (t.like_count||0);
+        break;
+      }
+    }
+  }
+  const catEntries = Object.entries(categories).filter(([,v])=>v.count>0).sort((a,b)=>b[1].count-a[1].count);
+
+  // --- 9. Top authors (who gets the most engagement) ---
+  const authorStats = {};
+  for (const t of allTweets) {
+    const key = t.author_username || t.author_name || 'unknown';
+    if (!authorStats[key]) authorStats[key] = {name: t.author_name, username: t.author_username, icon: t.author_icon_url, count:0, likes:0, rt:0};
+    authorStats[key].count++;
+    authorStats[key].likes += (t.like_count||0);
+    authorStats[key].rt += (t.retweet_count||0);
+  }
+  const topAuthors = Object.values(authorStats).sort((a,b) => b.likes - a.likes).slice(0, 10);
+  const repeatAuthors = Object.values(authorStats).filter(a => a.count >= 2).sort((a,b) => b.count - a.count).slice(0, 5);
+
+  // --- Render ---
+  const maxLenCount = Math.max(...Object.values(lenBuckets).map(b => b.c), 1);
+  const maxHashFreq = topHashtags.length > 0 ? topHashtags[0].count : 1;
+  const maxCatCount = catEntries.length > 0 ? catEntries[0][1].count : 1;
+
+  body.innerHTML = `
+    <!-- サマリー -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128202;</span> ツイート分析データ概要</h3>
+      <div class="score-meters">
+        <div class="score-meter">
+          <div class="sm-label">分析ツイート数</div>
+          <div class="sm-value">${allTweets.length}</div>
+          <div class="sm-sub">${twDates.length}日分のデータ</div>
+        </div>
+        <div class="score-meter">
+          <div class="sm-label">平均いいね</div>
+          <div class="sm-value">${avgLikes.toLocaleString()}</div>
+          <div class="sm-sub">全ツイート平均</div>
+        </div>
+        <div class="score-meter">
+          <div class="sm-label">平均RT</div>
+          <div class="sm-value">${avgRT.toLocaleString()}</div>
+          <div class="sm-sub">全ツイート平均</div>
+        </div>
+        <div class="score-meter">
+          <div class="sm-label">TOP10 平均いいね</div>
+          <div class="sm-value">${top10AvgLikes.toLocaleString()}</div>
+          <div class="sm-sub">上位10ツイートの平均</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ツイートタイプ別分析 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#127916;</span> ツイートの種類別パフォーマンス</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">どの種類のツイートがいいね・RTを獲得しやすいか</p>
+      <div class="h-bar-chart">
+        ${catEntries.map(([cat, info]) => {
+          const avgL = Math.round(info.likes / info.count);
+          const width = (info.count / maxCatCount * 100).toFixed(0);
+          const colors = {'お知らせ・告知':'#f44336','イラスト・ビジュアル':'#e91e63','フォロー祭り・交流':'#2196f3','おはよう・日常':'#ff9800','意見・考察':'#9c27b0','ファンアート・創作':'#4caf50'};
+          return '<div class="h-bar-row"><div class="h-bar-label">' + cat + '</div><div class="h-bar-track"><div class="h-bar-fill" style="width:' + Math.max(width,8) + '%;background:' + (colors[cat]||'#e94560') + '">' + info.count + '件 / 平均' + avgL.toLocaleString() + '♥</div></div></div>';
+        }).join('')}
+      </div>
+      <p style="color:#888;font-size:12px;margin-top:8px;">
+        ${catEntries.length > 0 ? '最もいいねを獲得しやすいのは<span style="color:#e94560;font-weight:bold;">「' + catEntries.sort((a,b)=>(b[1].count>0?b[1].likes/b[1].count:0)-(a[1].count>0?a[1].likes/a[1].count:0))[0][0] + '」</span>系ツイート' : ''}
+      </p>
+    </div>
+
+    <!-- 文字数分析 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128207;</span> ツイート文字数と反応の関係</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">
+        最適な文字数は <span class="num-highlight">${bestLen ? bestLen[0] : '-'}</span>（平均いいね ${bestLen ? Math.round(bestLen[1].likes/bestLen[1].c).toLocaleString() : '-'}）
+      </p>
+      <div class="h-bar-chart">
+        ${Object.entries(lenBuckets).map(([label, data]) => {
+          const avg = data.c > 0 ? Math.round(data.likes / data.c).toLocaleString() : 0;
+          const width = (data.c / maxLenCount * 100).toFixed(0);
+          return '<div class="h-bar-row"><div class="h-bar-label">' + label + '</div><div class="h-bar-track"><div class="h-bar-fill" style="width:' + Math.max(width,5) + '%">平均' + avg + '♥ (' + data.c + '件)</div></div></div>';
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- 画像あり/なし比較 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128247;</span> 画像・メディアの効果</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">画像付きツイートは反応が高くなるか？</p>
+      <div class="score-meters">
+        <div class="score-meter">
+          <div class="sm-label">画像あり 平均いいね</div>
+          <div class="sm-value" style="color:${mediaAvgLikes >= noMediaAvgLikes ? '#4caf50' : '#e94560'}">${mediaAvgLikes.toLocaleString()}</div>
+          <div class="sm-sub">${withMedia.length}件（${Math.round(withMedia.length/allTweets.length*100)}%）</div>
+        </div>
+        <div class="score-meter">
+          <div class="sm-label">画像なし 平均いいね</div>
+          <div class="sm-value" style="color:${noMediaAvgLikes >= mediaAvgLikes ? '#4caf50' : '#e94560'}">${noMediaAvgLikes.toLocaleString()}</div>
+          <div class="sm-sub">${noMedia.length}件（${Math.round(noMedia.length/allTweets.length*100)}%）</div>
+        </div>
+        <div class="score-meter">
+          <div class="sm-label">判定</div>
+          <div class="sm-value" style="font-size:16px;color:#fff">${mediaAvgLikes >= noMediaAvgLikes ? '&#128247; 画像あり有利' : '&#128172; テキスト有利'}</div>
+          <div class="sm-sub">差 ${Math.abs(mediaAvgLikes - noMediaAvgLikes).toLocaleString()} いいね</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 拡散力分析 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128640;</span> 拡散力分析（RT/いいね比率）</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">RT率が高い＝フォロワー外に広がりやすいツイート。平均RT率: <span class="num-highlight">${avgRtRatio}%</span></p>
+      <p style="color:#aaa;font-size:12px;margin-bottom:8px;">RT率が高いツイートTOP5（共感・情報価値が高い）</p>
+      <div class="pattern-cards">
+        ${highSpreadTweets.map(t => {
+          const rtPct = (t.rtRatio * 100).toFixed(1);
+          return '<div class="pattern-card"><h4>RT率 ' + rtPct + '% &#128293;</h4><p style="font-size:12px;color:#ccc;-webkit-line-clamp:2;display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;">' + esc((t.text||'').substring(0,100)) + '</p><p style="font-size:11px;color:#888;margin-top:4px;">@' + esc(t.author_username||'') + ' / ♥' + (t.like_count||0).toLocaleString() + ' RT' + (t.retweet_count||0).toLocaleString() + '</p></div>';
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- ハッシュタグ分析 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128204;</span> ハッシュタグ分析</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">よく使われるハッシュタグと平均いいね数</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;">
+        ${topHashtags.map(h => {
+          const avgL = Math.round(h.likes / h.count);
+          const size = Math.max(12, Math.min(20, 12 + h.count * 2));
+          return '<span style="display:inline-block;padding:6px 12px;border-radius:20px;background:#1da1f233;color:#1da1f2;font-size:' + size + 'px;border:1px solid #1da1f244;">' + esc(h.original) + ' <span style="font-size:11px;color:#888;">(' + h.count + '回 / 平均' + avgL.toLocaleString() + '♥)</span></span>';
+        }).join('')}
+      </div>
+      ${topHashtagsByLikes.length > 0 ? '<p style="color:#888;font-size:12px;">いいね効率が高いタグ: ' + topHashtagsByLikes.slice(0,5).map(h => '<span style="color:#1da1f2;">' + esc(h.original) + '</span>（平均' + Math.round(h.likes/h.count).toLocaleString() + '♥）').join('、') + '</p>' : ''}
+    </div>
+
+    <!-- キーワード分析 -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128161;</span> バズキーワード</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">ランクインツイートに頻出するキーワード</p>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${topKeywords.map(([word, info]) => {
+          const avgL = Math.round(info.likes / info.count);
+          const opacity = Math.min(1, 0.4 + info.count / (topKeywords[0]?.[1]?.count||1) * 0.6);
+          return '<span style="display:inline-block;padding:4px 10px;border-radius:4px;background:rgba(233,69,96,' + opacity.toFixed(2) + ');color:#fff;font-size:13px;">' + esc(word) + ' <span style="font-size:10px;opacity:0.7;">(' + info.count + ')</span></span>';
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- 投稿時間帯分析 -->
+    ${hourEntries.length > 0 ? `
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128336;</span> 投稿時間帯と反応（JST）</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">
+        最もいいねが多い時間帯は <span class="num-highlight">${bestHour ? bestHour[0] : '-'}</span>（平均${bestHour ? Math.round(bestHour[1].likes/bestHour[1].c).toLocaleString() : '-'}いいね）
+      </p>
+      <div class="h-bar-chart">
+        ${hourEntries.map(([hour, data]) => {
+          const avg = data.c > 0 ? Math.round(data.likes / data.c) : 0;
+          const maxH = Math.max(...hourEntries.map(([,v]) => v.c), 1);
+          const width = (data.c / maxH * 100).toFixed(0);
+          const isBest = bestHour && hour === bestHour[0];
+          return '<div class="h-bar-row"><div class="h-bar-label">' + hour + '</div><div class="h-bar-track"><div class="h-bar-fill" style="width:' + Math.max(width,5) + '%;' + (isBest ? 'background:#4caf50;' : '') + '">' + data.c + '件 / 平均' + avg.toLocaleString() + '♥</div></div></div>';
+        }).join('')}
+      </div>
+    </div>` : ''}
+
+    <!-- 常連バズアカウント -->
+    ${repeatAuthors.length > 0 ? `
+    <div class="hint-section">
+      <h3><span class="h-icon">&#11088;</span> 常連バズアカウント（参考にすべき人）</h3>
+      <p style="color:#aaa;font-size:13px;margin-bottom:12px;">複数回ランクインしているアカウント。ツイート戦略の参考に。</p>
+      <div class="pattern-cards">
+        ${repeatAuthors.map(a => {
+          const avgL = Math.round(a.likes / a.count);
+          return '<div class="pattern-card"><h4>' + esc(a.name) + '</h4><p style="font-size:12px;color:#1da1f2;">@' + esc(a.username) + '</p><p style="font-size:12px;color:#aaa;margin-top:4px;">ランクイン <strong style="color:#e94560;">' + a.count + '回</strong> / 平均 ' + avgL.toLocaleString() + '♥ / 合計 ' + a.likes.toLocaleString() + '♥</p></div>';
+        }).join('')}
+      </div>
+    </div>` : ''}
+
+    <!-- アクションプラン -->
+    <div class="hint-section">
+      <h3><span class="h-icon">&#128640;</span> バズるツイートのアクションプラン</h3>
+      <div class="pattern-cards">
+        <div class="action-card">
+          <div class="ac-title">&#128247; 画像を必ずつける</div>
+          <div class="ac-body">
+            画像付きツイートの平均いいねは<strong style="color:#e94560;">${mediaAvgLikes.toLocaleString()}</strong>。
+            ${mediaAvgLikes >= noMediaAvgLikes ? 'テキストのみ（' + noMediaAvgLikes.toLocaleString() + '）と比べて<strong>' + Math.round((mediaAvgLikes/Math.max(noMediaAvgLikes,1)-1)*100) + '%高い</strong>反応が得られます。' : 'テキストのみでも高い反応が出ていますが、画像で目を引くことも重要です。'}
+            立ち絵やイラストを活用しましょう。
+          </div>
+        </div>
+        <div class="action-card">
+          <div class="ac-title">&#128204; 効果的なハッシュタグを使う</div>
+          <div class="ac-body">
+            ${topHashtags.length > 0 ? 'よく使われるタグ: ' + topHashtags.slice(0,5).map(h => '<strong style="color:#1da1f2;">' + esc(h.original) + '</strong>').join('、') + '。特に<strong>フォロー祭り系タグ</strong>は初期のインプレッションを稼ぐのに有効です。' : 'ハッシュタグデータを蓄積中です。'}
+          </div>
+        </div>
+        <div class="action-card">
+          <div class="ac-title">&#128172; 共感・意見系ツイートで拡散を狙う</div>
+          <div class="ac-body">
+            RT率が高いツイートは<strong>意見・考察系</strong>が多い傾向です。
+            「VTuberあるある」「個人勢の悩み」など<strong>同じ立場の人が共感できる内容</strong>をツイートすると拡散されやすくなります。
+            平均RT率は<strong style="color:#e94560;">${avgRtRatio}%</strong>です。
+          </div>
+        </div>
+        <div class="action-card">
+          <div class="ac-title">&#128207; 最適な文字数を意識する</div>
+          <div class="ac-body">
+            最もいいねが多い文字数帯は<strong style="color:#e94560;">${bestLen ? bestLen[0] : '-'}</strong>です。
+            ${bestLen && bestLen[0] === '101-140字' ? '情報量がありつつ読みやすい長さが最適です。' : bestLen && bestLen[0] === '1-50字' ? '短くインパクトのある一言が効果的です。' : '適度な情報量を意識しましょう。'}
+          </div>
+        </div>
+        ${bestHour ? `<div class="action-card">
+          <div class="ac-title">&#128336; ${bestHour[0]}台にツイートする</div>
+          <div class="ac-body">
+            データによると<strong style="color:#e94560;">${bestHour[0]}台</strong>の投稿が最もいいねを獲得しています（平均${Math.round(bestHour[1].likes/bestHour[1].c).toLocaleString()}いいね）。
+            フォロワーのアクティブ時間帯を意識して投稿しましょう。
+          </div>
+        </div>` : ''}
+      </div>
+    </div>
+  `;
 }
 </script>
 </body>
