@@ -133,6 +133,130 @@
   .auth-error { color: #e94560; font-size: 13px; margin-top: 12px; display: none; }
   body.authed { overflow: auto; }
 
+  /* Twitter Timeline */
+  .tw-timeline {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 0 16px 32px;
+  }
+  .tw-tweet {
+    background: #16213e;
+    border: 1px solid #253554;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  .tw-tweet:hover { border-color: #1da1f2; }
+  .tw-tweet-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .tw-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #1a1a2e;
+  }
+  .tw-author-info { flex: 1; min-width: 0; }
+  .tw-author-name {
+    font-weight: bold;
+    font-size: 15px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tw-author-handle {
+    font-size: 13px;
+    color: #8899a6;
+  }
+  .tw-rank-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    flex-shrink: 0;
+    background: #253554;
+    color: #8899a6;
+  }
+  .tw-rank-badge.r1 { background: linear-gradient(135deg, #FFD700, #FFA500); color: #1a1a2e; }
+  .tw-rank-badge.r2 { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: #1a1a2e; }
+  .tw-rank-badge.r3 { background: linear-gradient(135deg, #CD7F32, #A0522D); color: #fff; }
+  .tw-tweet-text {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #e0e0e0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin-bottom: 12px;
+    display: -webkit-box;
+    -webkit-line-clamp: 6;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .tw-media {
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    max-height: 300px;
+  }
+  .tw-media img {
+    width: 100%;
+    display: block;
+    object-fit: cover;
+    max-height: 300px;
+  }
+  .tw-engagement {
+    display: flex;
+    gap: 4px;
+    padding-top: 10px;
+    border-top: 1px solid #253554;
+  }
+  .tw-eng-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    font-size: 11px;
+    color: #8899a6;
+  }
+  .tw-eng-item .tw-eng-val {
+    font-size: 15px;
+    font-weight: bold;
+    color: #e0e0e0;
+  }
+  .tw-eng-item.likes .tw-eng-val { color: #e94560; }
+  .tw-eng-item.rts .tw-eng-val { color: #17bf63; }
+  .tw-eng-item.imps .tw-eng-val { color: #1da1f2; }
+  .tw-tweet-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #8899a6;
+  }
+  .tw-open-btn {
+    font-size: 12px;
+    color: #1da1f2;
+    text-decoration: none;
+    font-weight: bold;
+  }
+
   /* Stats */
   .stats {
     display: flex;
@@ -988,37 +1112,9 @@
     </select>
     <label>検索:</label>
     <input type="text" id="twSearchInput" placeholder="ツイート本文・投稿者名...">
-    <div class="view-toggle">
-      <button class="view-toggle-btn" id="twViewTable" title="テーブル表示">&#9776;</button>
-      <button class="view-toggle-btn active" id="twViewGrid" title="グリッド表示">&#9638;</button>
-    </div>
   </div>
   <div class="stats" id="twStatsArea"></div>
-  <div id="twGridContainer" class="grid-wrap"></div>
-  <div class="table-wrap" id="twTableContainer" style="display:none;">
-    <div id="twEmptyState" class="empty-state">
-      <p>tweet_history.json を読み込み中...</p>
-      <p style="font-size:14px;color:#555;">tweet_ranking.py を実行するとデータが生成されます</p>
-    </div>
-    <table id="twRankingTable" style="display:none;">
-      <thead>
-        <tr>
-          <th data-twcol="rank">順位</th>
-          <th>アイコン</th>
-          <th data-twcol="author_name">投稿者</th>
-          <th data-twcol="text">ツイート本文</th>
-          <th data-twcol="like_count">いいね</th>
-          <th data-twcol="retweet_count">RT</th>
-          <th data-twcol="impression_count">インプレッション</th>
-          <th data-twcol="quote_count">引用</th>
-          <th data-twcol="reply_count">リプライ</th>
-          <th data-twcol="posted_at">投稿日</th>
-          <th>リンク</th>
-        </tr>
-      </thead>
-      <tbody id="twTableBody"></tbody>
-    </table>
-  </div>
+  <div id="twTimelineContainer" class="tw-timeline"></div>
 </div>
 
 <!-- Trends view -->
@@ -1953,22 +2049,6 @@ let twDates = [];
 let twCurrentDate = '';
 let twAllData = [];
 let twCurrentSort = { key: 'like_count', desc: true };
-let twCurrentView = 'grid';
-
-// View toggle
-document.getElementById('twViewTable').addEventListener('click', () => {
-  twCurrentView = 'table';
-  document.getElementById('twViewTable').classList.add('active');
-  document.getElementById('twViewGrid').classList.remove('active');
-  twRenderAll();
-});
-document.getElementById('twViewGrid').addEventListener('click', () => {
-  twCurrentView = 'grid';
-  document.getElementById('twViewGrid').classList.add('active');
-  document.getElementById('twViewTable').classList.remove('active');
-  twRenderAll();
-});
-
 // Date nav
 document.getElementById('twDatePicker').addEventListener('change', (e) => twLoadDate(e.target.value));
 document.getElementById('twPrevDay').addEventListener('click', () => twNavigateDate(-1));
@@ -2050,125 +2130,63 @@ function twRenderAll() {
     `;
   } else { statsArea.innerHTML = ''; }
 
-  const tableContainer = document.getElementById('twTableContainer');
-  const gridContainer = document.getElementById('twGridContainer');
-
-  if (twCurrentView === 'grid') {
-    tableContainer.style.display = 'none';
-    gridContainer.style.display = '';
-    twRenderGrid(data);
-  } else {
-    tableContainer.style.display = '';
-    gridContainer.style.display = 'none';
-    twRenderTable(data);
-  }
+  twRenderTimeline(data);
 }
 
-function twRenderTable(data) {
-  const table = document.getElementById('twRankingTable');
-  const empty = document.getElementById('twEmptyState');
-  const tbody = document.getElementById('twTableBody');
+function twRenderTimeline(data) {
+  const container = document.getElementById('twTimelineContainer');
 
   if (data.length === 0 && twAllData.length === 0 && twDates.length === 0) {
-    table.style.display = 'none'; empty.style.display = 'block'; return;
+    container.innerHTML = '<div class="empty-state"><p>tweet_history.json を読み込み中...</p><p style="font-size:14px;color:#555;">tweet_ranking.py を実行するとデータが生成されます</p></div>';
+    return;
   }
-  table.style.display = 'table'; empty.style.display = 'none';
-
   if (data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#666;padding:40px;">この日のデータには検索結果がありません</td></tr>';
+    container.innerHTML = '<div class="empty-state"><p>この日のデータには検索結果がありません</p></div>';
     return;
   }
 
-  const maxLikes = Math.max(...data.map(d => d.like_count||0), 1);
-
-  tbody.innerHTML = data.map((d, i) => {
+  container.innerHTML = data.map((d, i) => {
     const rank = i + 1;
-    const rankClass = rank <= 3 ? ` rank-${rank}` : '';
-    const iconHtml = d.author_icon_url
-      ? `<img src="${esc(d.author_icon_url)}" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">`
-      : '';
-    const linkHtml = d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" class="link-btn" style="background:#1da1f2;">開く</a>` : '';
-    const posted = (d.posted_at||'').slice(0, 10);
-    const tweetText = esc((d.text||'').slice(0, 120)).replace(/\n/g, ' ');
-
-    return `<tr>
-      <td class="rank${rankClass}">${rank}</td>
-      <td style="text-align:center;">${iconHtml}</td>
-      <td class="channel-cell" title="@${esc(d.author_username||'')}">${esc(d.author_name||'')}<br><span style="font-size:11px;color:#888;">@${esc(d.author_username||'')}</span></td>
-      <td class="title-cell" style="max-width:320px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">${tweetText}</td>
-      <td class="num" style="color:#e94560;font-weight:bold;">${(d.like_count||0).toLocaleString()}</td>
-      <td class="num">${(d.retweet_count||0).toLocaleString()}</td>
-      <td class="num">${(d.impression_count||0).toLocaleString()}</td>
-      <td class="num">${(d.quote_count||0).toLocaleString()}</td>
-      <td class="num">${(d.reply_count||0).toLocaleString()}</td>
-      <td>${posted}</td>
-      <td>${linkHtml}</td>
-    </tr>`;
-  }).join('');
-}
-
-function twRenderGrid(data) {
-  const gridContainer = document.getElementById('twGridContainer');
-
-  if (data.length === 0) {
-    gridContainer.innerHTML = '<div class="empty-state"><p>この日のデータには検索結果がありません</p></div>';
-    return;
-  }
-
-  gridContainer.innerHTML = data.map((d, i) => {
-    const rank = i + 1;
-    const rankColor = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+    const rankCls = rank <= 3 ? ` r${rank}` : '';
     const link = d.url ? esc(d.url) : '#';
     const iconSrc = d.author_icon_url ? esc(d.author_icon_url) : '';
-    const tweetText = esc((d.text||'').slice(0, 140)).replace(/\n/g, ' ');
-    const posted = (d.posted_at||'').slice(0, 10);
-
-    // メディア画像があれば表示、なければアイコン拡大
+    const tweetText = esc(d.text||'');
+    const posted = (d.posted_at||'').slice(0, 16).replace('T', ' ');
     const mediaUrl = (d.media_urls && d.media_urls.length > 0) ? esc(d.media_urls[0]) : '';
-    const thumbHtml = mediaUrl
-      ? `<img class="grid-card-thumb" src="${mediaUrl}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-         <div class="grid-card-thumb" style="display:none;background:#1a1a2e;align-items:center;justify-content:center;padding:16px;">
-           ${iconSrc ? `<img src="${iconSrc}" style="width:64px;height:64px;border-radius:50%;" onerror="this.outerHTML='<span style=color:#1da1f2;font-size:36px>&#x1D54F;</span>'">` : '<span style="color:#1da1f2;font-size:36px">&#x1D54F;</span>'}
-         </div>`
-      : `<div class="grid-card-thumb" style="background:#1a1a2e;display:flex;align-items:center;justify-content:center;padding:16px;">
-           ${iconSrc ? `<img src="${iconSrc}" style="width:64px;height:64px;border-radius:50%;" onerror="this.outerHTML='<span style=color:#1da1f2;font-size:36px>&#x1D54F;</span>'">` : '<span style="color:#1da1f2;font-size:36px">&#x1D54F;</span>'}
-         </div>`;
 
-    return `<a href="${link}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
-      <div class="grid-card">
-        <div class="grid-card-rank ${rankColor}">${rank}</div>
-        <div class="grid-card-growth" style="background:rgba(29,161,242,0.9);">${formatNum(d.like_count||0)}</div>
-        ${thumbHtml}
-        <div class="grid-card-body">
-          <div class="grid-card-channel" style="margin-bottom:4px;">
-            ${iconSrc ? `<img src="${iconSrc}" style="width:20px;height:20px;border-radius:50%;vertical-align:middle;margin-right:4px;" onerror="this.style.display='none'">` : ''}
-            ${esc(d.author_name||'')} <span style="color:#888;font-size:11px;">@${esc(d.author_username||'')}</span>
-          </div>
-          <div class="grid-card-title" style="font-size:12px;line-height:1.4;-webkit-line-clamp:4;">${tweetText}</div>
-          <div style="font-size:11px;color:#666;margin-top:4px;">${posted}</div>
-          <div class="grid-card-stats">
-            <div class="stat-item"><span class="val" style="color:#e94560;">${formatNum(d.like_count||0)}</span><span class="stat-label">いいね</span></div>
-            <div class="stat-item"><span class="val">${formatNum(d.retweet_count||0)}</span><span class="stat-label">RT</span></div>
-            <div class="stat-item"><span class="val">${formatNum(d.impression_count||0)}</span><span class="stat-label">インプ</span></div>
-          </div>
+    const avatarHtml = iconSrc
+      ? `<img class="tw-avatar" src="${iconSrc}" alt="" onerror="this.style.display='none'">`
+      : `<div class="tw-avatar" style="display:flex;align-items:center;justify-content:center;background:#253554;color:#1da1f2;font-size:20px;font-weight:bold;">${esc((d.author_name||'?').charAt(0))}</div>`;
+
+    const mediaHtml = mediaUrl
+      ? `<div class="tw-media"><img src="${mediaUrl}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'"></div>`
+      : '';
+
+    return `<a href="${link}" target="_blank" rel="noopener" class="tw-tweet">
+      <div class="tw-tweet-head">
+        ${avatarHtml}
+        <div class="tw-author-info">
+          <div class="tw-author-name">${esc(d.author_name||'')}</div>
+          <div class="tw-author-handle">@${esc(d.author_username||'')}</div>
         </div>
+        <div class="tw-rank-badge${rankCls}">${rank}</div>
+      </div>
+      <div class="tw-tweet-text">${tweetText}</div>
+      ${mediaHtml}
+      <div class="tw-engagement">
+        <div class="tw-eng-item likes"><span class="tw-eng-val">${formatNum(d.like_count||0)}</span>いいね</div>
+        <div class="tw-eng-item rts"><span class="tw-eng-val">${formatNum(d.retweet_count||0)}</span>RT</div>
+        <div class="tw-eng-item"><span class="tw-eng-val">${formatNum(d.reply_count||0)}</span>リプライ</div>
+        <div class="tw-eng-item"><span class="tw-eng-val">${formatNum(d.quote_count||0)}</span>引用</div>
+        <div class="tw-eng-item imps"><span class="tw-eng-val">${formatNum(d.impression_count||0)}</span>インプ</div>
+      </div>
+      <div class="tw-tweet-meta">
+        <span>${posted}</span>
+        <span class="tw-open-btn">X で見る &rarr;</span>
       </div>
     </a>`;
   }).join('');
 }
-
-// Column header sort (Twitter)
-document.querySelectorAll('thead th[data-twcol]').forEach(th => {
-  th.addEventListener('click', () => {
-    const col = th.dataset.twcol;
-    if (twCurrentSort.key === col) twCurrentSort.desc = !twCurrentSort.desc;
-    else twCurrentSort = { key: col, desc: true };
-    const sel = document.getElementById('twSortSelect');
-    const val = `${col}-${twCurrentSort.desc ? 'desc' : 'asc'}`;
-    for (const opt of sel.options) { if (opt.value === val) { sel.value = val; break; } }
-    twRenderAll();
-  });
-});
 
 // ================================================================
 // 企画ヒント（Content Strategy）

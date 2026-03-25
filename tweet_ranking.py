@@ -50,13 +50,10 @@ client = ApifyClient(APIFY_TOKEN) if APIFY_TOKEN else None
 # 【課金事故防止】 ハードコードされた安全制限
 # ※ これらの値は絶対に変更しないでください
 # ---------------------------------------------------------------------------
-SEARCH_QUERY = (
-    "(VTuber OR #VTuber OR #新人Vtuber OR ホロライブ OR にじさんじ OR ぶいすぽ) "
-    "min_faves:1000 lang:ja -filter:replies"
-)
-# 取得上限: 100件固定（Scweet の最小値が100。$0.03/回なので無料枠$5/月で安全）
-ABSOLUTE_MAX_ITEMS = 100
-ACTOR_ID = "altimis/scweet"
+SEARCH_QUERY = "VTuber OR #VTuber OR #新人Vtuber OR ホロライブ OR にじさんじ OR ぶいすぽ"
+# 取得上限: 50件固定（$0.00025/tweet × 50 = $0.0125/回。無料枠$5/月で毎日実行可能）
+ABSOLUTE_MAX_ITEMS = 50
+ACTOR_ID = "kaitoeasyapi/twitter-x-data-tweet-scraper-pay-per-result-cheapest"
 ACTOR_TIMEOUT_SECS = 300  # Actor 実行タイムアウト（5分）
 
 # デバッグ: 生データを保存して構造を確認できるようにする
@@ -161,13 +158,13 @@ def upsert_tweets(conn, tweets):
 # =============================================================================
 
 def fetch_tweets_from_apify():
-    """Apify Actor (altimis/scweet) を実行してツイートを取得
+    """Apify Actor (kaitoeasyapi/twitter-x-data-tweet-scraper) を実行してツイートを取得
 
     【課金事故防止】
-    - max_items は ABSOLUTE_MAX_ITEMS (100) に固定（Scweet最小値）
-    - search_query は定数 SEARCH_QUERY のみ（動的に変更不可）
+    - maxItems は ABSOLUTE_MAX_ITEMS (50) に固定
+    - twitterContent は定数 SEARCH_QUERY のみ（動的に変更不可）
     - タイムアウトも ACTOR_TIMEOUT_SECS で制限
-    - コスト: $0.0003/tweet × 100件 = $0.03/回（無料枠 $5/月 で安全）
+    - コスト: $0.00025/tweet × 50件 = $0.0125/回（無料枠 $5/月 で毎日実行可能）
     """
     print(f"  Apify Actor: {ACTOR_ID}")
     print(f"  検索クエリ: {SEARCH_QUERY}")
@@ -178,18 +175,17 @@ def fetch_tweets_from_apify():
         return []
 
     try:
-        # ─── Scweet 用リクエストパラメータ（値を変更しないこと） ───
+        # ─── kaitoeasyapi 用リクエストパラメータ（値を変更しないこと） ───
         run_input = {
-            "source_mode": "search",
-            "search_query": SEARCH_QUERY,
-            "max_items": ABSOLUTE_MAX_ITEMS,  # 100件固定（Scweet最小値）
-            "search_sort": "Top",             # いいね数が多い順
+            "twitterContent": SEARCH_QUERY,
+            "maxItems": ABSOLUTE_MAX_ITEMS,   # 50件固定
+            "queryType": "Top",               # いいね数が多い順
             "lang": "ja",
-            "tweet_type": "originals_only",   # リプライ除外
+            "min_faves": 1000,                # いいね1000以上
         }
 
         # 念のため実行直前に上限を再確認
-        assert run_input["max_items"] <= 100, "max_items が100を超えています！"
+        assert run_input["maxItems"] <= 50, "maxItems が50を超えています！"
 
         print(f"  Actor実行中（タイムアウト: {ACTOR_TIMEOUT_SECS}秒）...")
         run = client.actor(ACTOR_ID).call(
@@ -252,14 +248,13 @@ def _parse_date(raw_date):
 
 
 def extract_tweet_data(items):
-    """Apify (Scweet / 汎用) の生データを整形して統一フォーマットに変換
+    """Apify (kaitoeasyapi/twitter-x-data-tweet-scraper) の生データを整形
 
-    Scweet の出力フィールド:
-      id: "tweet-{数字}" 形式（プレフィックス除去が必要）
-      handle, text, favorite_count, retweet_count, reply_count,
-      view_count（文字列型）, tweet_url, created_at,
-      user: { name, handle, profile_image_url_https, ... }
-      tweet: { quote_count, bookmark_count, ... }（ネスト内のみ）
+    出力フィールド:
+      id, url, text, createdAt（Twitter形式）,
+      likeCount, retweetCount, replyCount, quoteCount, viewCount, bookmarkCount,
+      author: { name, userName, profilePicture, ... }
+      media: [ { media_url_https, type, ... } ]（オプション）
     """
     tweets = {}
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -267,119 +262,49 @@ def extract_tweet_data(items):
 
     for item in items:
         try:
-            # noResults フラグ（デモモード等）はスキップ
-            if item.get("noResults"):
-                skipped += 1
-                continue
+            # noResults / エラーレスポンスはスキップ
+            if item.get("noResults") or item.get("type") not in (None, "tweet"):
+                if item.get("type") not in (None, "tweet"):
+                    skipped += 1
+                    continue
 
             # --- ツイートID ---
-            # Scweet は "tweet-1234567890" 形式で返すのでプレフィックスを除去
-            raw_id = str(
-                item.get("id", "")
-                or item.get("id_str", "")
-                or item.get("rest_id", "")
-                or ""
-            )
-            tweet_id = raw_id.removeprefix("tweet-") if raw_id else ""
+            tweet_id = str(item.get("id", ""))
             if not tweet_id or tweet_id in tweets:
                 continue
 
             # --- テキスト ---
-            text = (
-                item.get("text", "")
-                or item.get("full_text", "")
-                or ""
-            )
+            text = item.get("text", "") or ""
 
-            # --- ユーザー情報 ---
-            user = item.get("user", {}) or {}
+            # --- ユーザー情報（author ネスト） ---
+            author = item.get("author", {}) or {}
 
-            author_name = (
-                user.get("name", "")
-                or item.get("author_name", "")
-                or ""
-            )
-            author_username = (
-                user.get("handle", "")
-                or user.get("screen_name", "")
-                or item.get("handle", "")
-                or ""
-            )
-            author_icon = (
-                user.get("profile_image_url_https", "")
-                or user.get("profile_image_url", "")
-                or ""
-            )
+            author_name = author.get("name", "") or ""
+            author_username = author.get("userName", "") or ""
+            author_icon = author.get("profilePicture", "") or ""
 
-            # --- エンゲージメント ---
-            # Scweet はトップレベルと tweet ネスト内の両方にデータを持つ
-            nested = item.get("tweet", {}) or {}
-
-            like_count = _safe_int(
-                item.get("favorite_count")
-                or nested.get("favorite_count")
-                or 0
-            )
-            retweet_count = _safe_int(
-                item.get("retweet_count")
-                or nested.get("retweet_count")
-                or 0
-            )
-            reply_count = _safe_int(
-                item.get("reply_count")
-                or nested.get("reply_count")
-                or 0
-            )
-            # quote_count, bookmark_count は tweet ネスト内にのみ存在
-            quote_count = _safe_int(
-                nested.get("quote_count")
-                or item.get("quote_count")
-                or 0
-            )
-            bookmark_count = _safe_int(
-                nested.get("bookmark_count")
-                or item.get("bookmark_count")
-                or 0
-            )
-            # view_count は文字列型の場合がある
-            impression_count = _safe_int(
-                item.get("view_count")
-                or nested.get("view_count")
-                or item.get("views")
-                or 0
-            )
+            # --- エンゲージメント（キャメルケース） ---
+            like_count = _safe_int(item.get("likeCount", 0))
+            retweet_count = _safe_int(item.get("retweetCount", 0))
+            reply_count = _safe_int(item.get("replyCount", 0))
+            quote_count = _safe_int(item.get("quoteCount", 0))
+            bookmark_count = _safe_int(item.get("bookmarkCount", 0))
+            impression_count = _safe_int(item.get("viewCount", 0))
 
             # --- 投稿日時 ---
-            raw_date = (
-                item.get("created_at")
-                or nested.get("created_at")
-                or ""
-            )
-            posted_at = _parse_date(raw_date)
+            posted_at = _parse_date(item.get("createdAt", ""))
 
             # --- ツイートURL ---
-            tweet_url = (
-                item.get("tweet_url", "")
-                or nested.get("tweet_url", "")
-                or ""
-            )
+            tweet_url = item.get("url", "") or ""
             if not tweet_url and author_username and tweet_id:
                 tweet_url = f"https://x.com/{author_username}/status/{tweet_id}"
 
             # --- メディアURL ---
             media_urls = []
-            # entities.media パス（ネスト内を優先）
-            entities = nested.get("entities", {}) or item.get("entities", {}) or {}
-            media_list = (
-                item.get("media", [])
-                or entities.get("media", [])
-                or []
-            )
+            media_list = item.get("media", []) or []
             for m in media_list:
                 if isinstance(m, dict):
-                    u = (m.get("media_url_https", "")
-                         or m.get("url", "")
-                         or m.get("fullUrl", ""))
+                    u = m.get("media_url_https", "") or m.get("url", "")
                     if u:
                         media_urls.append(u)
                 elif isinstance(m, str):
