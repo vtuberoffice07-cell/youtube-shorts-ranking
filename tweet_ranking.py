@@ -50,7 +50,7 @@ client = ApifyClient(APIFY_TOKEN) if APIFY_TOKEN else None
 # 【課金事故防止】 ハードコードされた安全制限
 # ※ これらの値は絶対に変更しないでください
 # ---------------------------------------------------------------------------
-SEARCH_QUERY = "VTuber OR #VTuber OR #新人Vtuber OR ホロライブ OR にじさんじ OR ぶいすぽ"
+SEARCH_QUERY = "(#VTuber OR #新人Vtuber OR #個人Vtuber OR 個人勢 OR Vtuber準備中) -ホロライブ -にじさんじ -ぶいすぽ -hololive -nijisanji -vspo -あおぎり -ネオポルテ -ななしいんく min_faves:500 lang:ja -filter:replies"
 # 取得上限: 50件固定（$0.00025/tweet × 50 = $0.0125/回。無料枠$5/月で毎日実行可能）
 ABSOLUTE_MAX_ITEMS = 50
 ACTOR_ID = "kaitoeasyapi/twitter-x-data-tweet-scraper-pay-per-result-cheapest"
@@ -181,7 +181,7 @@ def fetch_tweets_from_apify():
             "maxItems": ABSOLUTE_MAX_ITEMS,   # 50件固定
             "queryType": "Top",               # いいね数が多い順
             "lang": "ja",
-            "min_faves": 1000,                # いいね1000以上
+            "min_faves": 500,                 # いいね500以上（個人勢向けに閾値を下げる）
         }
 
         # 念のため実行直前に上限を再確認
@@ -430,7 +430,7 @@ def display_results(tweets):
 
     print(f"\n{'='*120}")
     print(f"  VTuber バズツイートランキング（上位 {len(tweets)} 件）")
-    print(f"  条件: いいね1000以上 / 日本語 / リプライ除外")
+    print(f"  条件: いいね500以上 / 個人勢・新人特化 / 大手事務所除外 / リプライ除外")
     print(f"{'='*120}")
     print(f"{'順位':>4}  {'投稿者':<20}  {'ツイート本文':<50}  "
           f"{'いいね':>8}  {'RT':>8}  {'インプ':>10}  {'投稿日':<10}")
