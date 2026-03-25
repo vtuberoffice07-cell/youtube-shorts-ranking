@@ -2,8 +2,9 @@ name: Daily VTuber Ranking
 
 on:
   schedule:
-    # 毎日日本時間 AM 7:00 に実行（UTC 22:00）
-    - cron: '0 22 * * *'
+    # 1日2回実行で確実性を向上（GitHub Actionsはスケジュールをスキップすることがある）
+    - cron: '0 22 * * *'   # 毎日 JST 7:00（UTC 22:00）
+    - cron: '0 10 * * *'   # 毎日 JST 19:00（UTC 10:00）バックアップ
   workflow_dispatch:
     # 手動実行も可能
 
@@ -18,6 +19,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -31,11 +35,13 @@ jobs:
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: python main.py
+        continue-on-error: true
 
       - name: Run YouTube ranking (全体版)
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: python main_all.py
+        continue-on-error: true
 
       - name: Run TikTok ranking
         env:
@@ -53,7 +59,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ranking_history.json ranking_output.csv ranking_all_history.json ranking_all_output.csv tiktok_history.json tiktok_output.csv tweet_history.json tweet_output.csv
+          git add ranking_history.json ranking_output.csv ranking_all_history.json ranking_all_output.csv tiktok_history.json tiktok_output.csv tweet_history.json tweet_output.csv tweets.db 2>/dev/null || true
           git diff --cached --quiet || git commit -m "ranking: $(date +%Y-%m-%d) のデータを追加"
-          git pull --rebase origin main
+          git pull --rebase origin main || git pull origin main
           git push
