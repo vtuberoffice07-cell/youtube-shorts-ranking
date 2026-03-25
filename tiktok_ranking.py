@@ -27,12 +27,15 @@ if not APIFY_TOKEN:
 client = ApifyClient(APIFY_TOKEN)
 
 # --- フィルタ条件 ---
-SEARCH_HASHTAGS = ["vtuber", "新人vtuber", "個人vtuber", "vtuber準備中"]
-MIN_FOLLOWERS = 500
+SEARCH_HASHTAGS = ["vtuber"]  # 1タグに絞ってコスト削減（$0.005/動画 × ~10件 = $0.05以下）
+# 他のVTuberハッシュタグ（新人vtuber, 個人vtuber, vtuber準備中）は
+# #vtuber に含まれるため、1タグでカバー可能
+RESULTS_PER_PAGE = 10  # 1回あたりの取得件数上限
+MIN_FOLLOWERS = 100       # 小規模VTuberもカバー（500→100）
 MAX_FOLLOWERS = 100000
-VIEW_MULTIPLIER = 2  # 再生数 >= フォロワー数 × この値
-MIN_COMMENTS = 10
-SEARCH_DAYS = 30  # 直近何日間
+VIEW_MULTIPLIER = 1.5     # 再生数 >= フォロワー数 × この値（2→1.5に緩和）
+MIN_COMMENTS = 3          # コメント数の閾値を緩和（10→3）
+SEARCH_DAYS = 30          # 直近何日間
 
 # --- NGキーワード ---
 NG_KEYWORDS = [
@@ -58,28 +61,39 @@ def contains_japanese(text):
     return False
 
 
-def search_tiktok_hashtag(hashtag, max_results=100):
-    """Apify TikTok Scraper でハッシュタグ検索"""
-    print(f"  検索中: #{hashtag} (最大{max_results}件)...")
+def search_tiktok_all_hashtags(hashtags, max_items=10):
+    """Apify TikTok Hashtag Scraper（従量課金: $0.005/動画）で検索"""
+    print(f"  検索中: {', '.join('#'+h for h in hashtags)} (最大{max_items}件)...")
+    print(f"  Actor: clockworks/tiktok-hashtag-scraper ($0.005/動画)")
+    print(f"  予想コスト: ${max_items * 0.005:.4f}")
 
     try:
         run_input = {
-            "hashtags": [hashtag],
-            "resultsPerPage": max_results,
+            "hashtags": hashtags,
+            "resultsPerPage": max_items,
             "shouldDownloadVideos": False,
             "shouldDownloadCovers": False,
             "shouldDownloadSubtitles": False,
             "shouldDownloadSlideshowImages": False,
         }
 
-        # clockworks/free-tiktok-scraper を使用
-        run = client.actor("clockworks/free-tiktok-scraper").call(
+        # clockworks/tiktok-hashtag-scraper（従量課金）を使用
+        run = client.actor("clockworks/tiktok-hashtag-scraper").call(
             run_input=run_input,
             timeout_secs=300,
         )
 
         items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
         print(f"    → {len(items)}件取得")
+
+        # コスト確認
+        run_info = client.run(run["id"]).get()
+        cost = run_info.get("usageTotalUsd", 0)
+        print(f"    → 実際の消費コスト: ${cost:.4f}")
+
+        if cost > 0.05:
+            print(f"    ⚠ 警告: コストが$0.05を超えました！")
+
         return items
 
     except Exception as e:
@@ -350,12 +364,9 @@ def main():
     print(f"検索期間: 直近{SEARCH_DAYS}日間")
     print(f"除外キーワード: {NG_KEYWORDS}")
 
-    # 1. ハッシュタグ検索
+    # 1. ハッシュタグ検索（1回のAPI呼び出しでコスト削減）
     print(f"\n[1/3] TikTok動画を検索中...")
-    all_items = []
-    for tag in SEARCH_HASHTAGS:
-        items = search_tiktok_hashtag(tag, max_results=100)
-        all_items.extend(items)
+    all_items = search_tiktok_all_hashtags(SEARCH_HASHTAGS, max_items=RESULTS_PER_PAGE)
 
     print(f"\n  合計取得: {len(all_items)}件（重複含む）")
 
