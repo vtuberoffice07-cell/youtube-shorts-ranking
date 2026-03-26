@@ -300,8 +300,13 @@ def extract_tweet_data(items):
                 tweet_url = f"https://x.com/{author_username}/status/{tweet_id}"
 
             # --- メディアURL ---
+            # kaitoeasyapi形式: extendedEntities.media[].media_url_https
             media_urls = []
-            media_list = item.get("media", []) or []
+            ext_entities = item.get("extendedEntities", {}) or {}
+            media_list = ext_entities.get("media", []) or []
+            # フォールバック: トップレベルの media キーも確認
+            if not media_list:
+                media_list = item.get("media", []) or []
             for m in media_list:
                 if isinstance(m, dict):
                     u = m.get("media_url_https", "") or m.get("url", "")
