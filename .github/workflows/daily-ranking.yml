@@ -75,6 +75,11 @@ jobs:
         run: python tweet_ranking.py
         continue-on-error: true
 
+      # ===== ヒントレポート生成（API不要・毎回最新データで更新） =====
+      - name: Generate hints report
+        run: python generate_hints.py
+        continue-on-error: true
+
       # ===== 診断ステップ =====
       - name: Diagnose file changes
         if: always()
@@ -97,7 +102,7 @@ jobs:
           git diff --name-only
           echo ""
           echo "--- 各ファイルの最終更新日時 ---"
-          for f in ranking_history.json ranking_all_history.json tiktok_history.json tweet_history.json; do
+          for f in ranking_history.json ranking_all_history.json tiktok_history.json tweet_history.json hints_report.json; do
             if [ -f "$f" ]; then
               SIZE=$(wc -c < "$f")
               DATES=$(python3 -c "import json; d=json.load(open('$f')); print(sorted(d.keys())[-3:])" 2>/dev/null || echo "parse error")
@@ -115,7 +120,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # 全データファイルをステージング（存在するものだけ）
-          for f in ranking_history.json ranking_output.csv ranking_all_history.json ranking_all_output.csv tiktok_history.json tiktok_output.csv tweet_history.json tweet_output.csv; do
+          for f in ranking_history.json ranking_output.csv ranking_all_history.json ranking_all_output.csv tiktok_history.json tiktok_output.csv tweet_history.json tweet_output.csv hints_report.json; do
             if [ -f "$f" ]; then
               git add "$f"
             fi

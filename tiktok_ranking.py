@@ -1,6 +1,11 @@
 """
 TikTok VTuber バズランキング取得ツール
-Apify の TikTok Scraper を使用してデータ取得
+Apify の TikTok Scraper を使用してデータ取得 → SQLite に UPSERT 保存
+
+使い方:
+  python tiktok_ranking.py            # 通常実行
+  python tiktok_ranking.py --dry      # Apify を呼ばず DB の既存データでランキング表示
+  python tiktok_ranking.py --debug    # 通常実行 + 生データを tiktok_raw_debug.json に保存
 """
 
 import csv
@@ -8,7 +13,9 @@ import io
 import json
 import os
 import re
+import sqlite3
 import sys
+import unicodedata
 from datetime import datetime, timedelta, timezone
 
 from apify_client import ApifyClient
@@ -19,22 +26,46 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 
 load_dotenv()
 
+# ---------------------------------------------------------------------------
+# 環境変数チェック（--dry モード以外では必須）
+# ---------------------------------------------------------------------------
+DRY_RUN = "--dry" in sys.argv
+
 APIFY_TOKEN = os.getenv("APIFY_API_TOKEN")
-if not APIFY_TOKEN:
-    print("エラー: .env ファイルに APIFY_API_TOKEN を設定してください。")
+if not APIFY_TOKEN and not DRY_RUN:
+    print("=" * 60)
+    print("エラー: APIFY_API_TOKEN が設定されていません。")
+    print("")
+    print("対処法:")
+    print("  1. .env ファイルに APIFY_API_TOKEN=your_token を記載")
+    print("  2. または環境変数として export APIFY_API_TOKEN=your_token")
+    print("")
+    print("トークンは https://console.apify.com/account#/integrations")
+    print("から取得できます。")
+    print("=" * 60)
     sys.exit(1)
 
-client = ApifyClient(APIFY_TOKEN)
+client = ApifyClient(APIFY_TOKEN) if APIFY_TOKEN else None
+
+# ---------------------------------------------------------------------------
+# 【課金事故防止】 ハードコードされた安全制限
+# ※ これらの値は絶対に変更しないでください
+# ---------------------------------------------------------------------------
+SEARCH_HASHTAGS = ["新人vtuber", "個人vtuber", "vtuber準備中"]
+# 日本語ハッシュタグ3つで日本語VTuber動画を直接ターゲット
+# 取得上限: resultsPerPage=1 → Actorがタグあたり1件ずつ返す（3タグ計3件）
+# 実測: resultsPerPage=10 → 30件取得で$0.15課金（$0.005×30件）
+#        resultsPerPage=1  → 3件取得で$0.015課金（Twitter同等）
+# 安全上限5件（3件+αの余裕）。DB蓄積により30日で最大90件のユニーク動画が蓄積される
+ABSOLUTE_MAX_ITEMS = 5
+ACTOR_ID = "clockworks/tiktok-hashtag-scraper"
+ACTOR_TIMEOUT_SECS = 300  # Actor 実行タイムアウト（5分）
 
 # --- フィルタ条件 ---
-SEARCH_HASHTAGS = ["vtuber"]  # 1タグに絞ってコスト削減（$0.005/動画 × ~10件 = $0.05以下）
-# 他のVTuberハッシュタグ（新人vtuber, 個人vtuber, vtuber準備中）は
-# #vtuber に含まれるため、1タグでカバー可能
-RESULTS_PER_PAGE = 10  # 1回あたりの取得件数上限
-MIN_FOLLOWERS = 100       # 小規模VTuberもカバー（500→100）
+MIN_FOLLOWERS = 100       # 小規模VTuberもカバー
 MAX_FOLLOWERS = 100000
-VIEW_MULTIPLIER = 1.5     # 再生数 >= フォロワー数 × この値（2→1.5に緩和）
-MIN_COMMENTS = 3          # コメント数の閾値を緩和（10→3）
+VIEW_MULTIPLIER = 1.5     # 再生数 >= フォロワー数 × この値
+MIN_COMMENTS = 3          # コメント数の閾値
 SEARCH_DAYS = 30          # 直近何日間
 
 # --- NGキーワード ---
@@ -44,13 +75,137 @@ NG_KEYWORDS = [
     "ぶいすぽ", "ネオポルテ",
 ]
 
+# デバッグ: 生データを保存して構造を確認できるようにする
+DEBUG_RAW_FILE = "tiktok_raw_debug.json"
+SAVE_RAW_DEBUG = "--debug" in sys.argv
+
+DB_FILE = "tiktok.db"
 HISTORY_FILE = "tiktok_history.json"
 CSV_FILE = "tiktok_output.csv"
 
 
+# =============================================================================
+# SQLite データベース操作
+# =============================================================================
+
+def init_db():
+    """SQLite データベースとテーブルを初期化"""
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS tiktok_videos (
+            id              TEXT PRIMARY KEY,
+            title           TEXT NOT NULL DEFAULT '',
+            author          TEXT NOT NULL DEFAULT '',
+            username        TEXT NOT NULL DEFAULT '',
+            followers       INTEGER NOT NULL DEFAULT 0,
+            views           INTEGER NOT NULL DEFAULT 0,
+            likes           INTEGER NOT NULL DEFAULT 0,
+            comments        INTEGER NOT NULL DEFAULT 0,
+            hashtags        TEXT NOT NULL DEFAULT '[]',
+            published       TEXT NOT NULL DEFAULT '',
+            url             TEXT NOT NULL DEFAULT '',
+            cover           TEXT NOT NULL DEFAULT '',
+            fetched_at      TEXT NOT NULL DEFAULT ''
+        )
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_tiktok_views ON tiktok_videos(views DESC)
+    """)
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS idx_tiktok_published ON tiktok_videos(published DESC)
+    """)
+    conn.commit()
+    return conn
+
+
+def upsert_video(conn, video):
+    """動画を UPSERT（存在すれば更新、なければ挿入）"""
+    conn.execute("""
+        INSERT INTO tiktok_videos (
+            id, title, author, username, followers,
+            views, likes, comments, hashtags,
+            published, url, cover, fetched_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            title = excluded.title,
+            author = excluded.author,
+            username = excluded.username,
+            followers = excluded.followers,
+            views = excluded.views,
+            likes = excluded.likes,
+            comments = excluded.comments,
+            hashtags = excluded.hashtags,
+            published = excluded.published,
+            url = excluded.url,
+            cover = excluded.cover,
+            fetched_at = excluded.fetched_at
+    """, (
+        video["id"],
+        video["title"],
+        video["author"],
+        video["username"],
+        video["followers"],
+        video["views"],
+        video["likes"],
+        video["comments"],
+        json.dumps(video["hashtags"], ensure_ascii=False),
+        video["published"],
+        video["url"],
+        video.get("cover", ""),
+        video["fetched_at"],
+    ))
+
+
+def upsert_videos(conn, videos):
+    """複数動画を一括 UPSERT"""
+    for video in videos:
+        upsert_video(conn, video)
+    conn.commit()
+    print(f"  → DB保存完了: {len(videos)}件を tiktok_videos テーブルに UPSERT")
+
+
+def get_db_stats(conn):
+    """DB内の動画件数と最新取得日時を返す"""
+    row = conn.execute("SELECT COUNT(*), MAX(fetched_at) FROM tiktok_videos").fetchone()
+    return row[0] or 0, row[1] or "N/A"
+
+
+def load_videos_from_db(conn):
+    """DB から直近 SEARCH_DAYS 日分の動画を読み出し"""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=SEARCH_DAYS)).strftime("%Y-%m-%d")
+    rows = conn.execute(
+        "SELECT id, title, author, username, followers, views, likes, comments, "
+        "hashtags, published, url, cover, fetched_at "
+        "FROM tiktok_videos WHERE published >= ? ORDER BY views DESC",
+        (cutoff,)
+    ).fetchall()
+    videos = []
+    for r in rows:
+        videos.append({
+            "id": r[0],
+            "title": r[1],
+            "author": r[2],
+            "username": r[3],
+            "followers": r[4],
+            "views": r[5],
+            "likes": r[6],
+            "comments": r[7],
+            "hashtags": json.loads(r[8]),
+            "published": r[9],
+            "url": r[10],
+            "cover": r[11],
+            "fetched_at": r[12],
+        })
+    return videos
+
+
+# =============================================================================
+# Apify データ取得
+# =============================================================================
+
 def contains_japanese(text):
     """テキストに日本語（ひらがな・カタカナ・漢字）が含まれているか判定"""
-    import unicodedata
     for ch in text:
         try:
             name = unicodedata.name(ch, "")
@@ -61,49 +216,81 @@ def contains_japanese(text):
     return False
 
 
-def search_tiktok_all_hashtags(hashtags, max_items=10):
-    """Apify TikTok Hashtag Scraper（従量課金: $0.005/動画）で検索"""
-    print(f"  検索中: {', '.join('#'+h for h in hashtags)} (最大{max_items}件)...")
-    print(f"  Actor: clockworks/tiktok-hashtag-scraper ($0.005/動画)")
-    print(f"  予想コスト: ${max_items * 0.005:.4f}")
+def fetch_tiktok_from_apify():
+    """Apify Actor (clockworks/tiktok-hashtag-scraper) を実行して動画を取得
+
+    【課金事故防止】
+    - resultsPerPage は ABSOLUTE_MAX_ITEMS (1) に固定
+    - ハッシュタグは SEARCH_HASHTAGS のみ（動的に変更不可）
+    - タイムアウトも ACTOR_TIMEOUT_SECS で制限
+    - コスト: $0.005/動画 × 約3件 = $0.015/回（Twitter同等）
+    """
+    print(f"  Apify Actor: {ACTOR_ID}")
+    print(f"  検索ハッシュタグ: {', '.join('#'+h for h in SEARCH_HASHTAGS)}")
+    print(f"  取得件数上限: {ABSOLUTE_MAX_ITEMS}（ハードリミット）")
+    print(f"  予想コスト: ${ABSOLUTE_MAX_ITEMS * 0.005:.4f}")
+
+    if client is None:
+        print("  ⚠ Apify クライアント未初期化（トークン未設定）")
+        return []
 
     try:
+        # resultsPerPage=1 でタグあたり最小取得（3タグ→計3件、$0.015/回）
         run_input = {
-            "hashtags": hashtags,
-            "resultsPerPage": max_items,
+            "hashtags": SEARCH_HASHTAGS,
+            "resultsPerPage": 1,
             "shouldDownloadVideos": False,
             "shouldDownloadCovers": False,
             "shouldDownloadSubtitles": False,
             "shouldDownloadSlideshowImages": False,
         }
 
-        # clockworks/tiktok-hashtag-scraper（従量課金）を使用
-        run = client.actor("clockworks/tiktok-hashtag-scraper").call(
+        # 念のため実行直前に上限を再確認
+        assert run_input["resultsPerPage"] <= 3, "resultsPerPage が3を超えています！"
+
+        print(f"  Actor実行中（タイムアウト: {ACTOR_TIMEOUT_SECS}秒）...")
+        run = client.actor(ACTOR_ID).call(
             run_input=run_input,
-            timeout_secs=300,
+            timeout_secs=ACTOR_TIMEOUT_SECS,
         )
 
         items = list(client.dataset(run["defaultDatasetId"]).iterate_items())
-        print(f"    → {len(items)}件取得")
+        print(f"  → {len(items)}件取得")
+
+        # デバッグ: 生データを保存
+        if SAVE_RAW_DEBUG and items:
+            with open(DEBUG_RAW_FILE, "w", encoding="utf-8") as f:
+                json.dump(items[:5], f, ensure_ascii=False, indent=2, default=str)
+            print(f"  → デバッグ用生データ保存: {DEBUG_RAW_FILE}（先頭5件）")
+
+        # 万が一 Actor が上限以上を返した場合は切り捨て
+        if len(items) > ABSOLUTE_MAX_ITEMS:
+            print(f"  ⚠ 上限超過のため {ABSOLUTE_MAX_ITEMS}件に切り捨て")
+            items = items[:ABSOLUTE_MAX_ITEMS]
 
         # コスト確認
         run_info = client.run(run["id"]).get()
         cost = run_info.get("usageTotalUsd", 0)
-        print(f"    → 実際の消費コスト: ${cost:.4f}")
+        print(f"  → 実際の消費コスト: ${cost:.4f}")
 
-        if cost > 0.05:
-            print(f"    ⚠ 警告: コストが$0.05を超えました！")
+        if cost > 0.03:
+            print(f"  ⚠ 警告: コストが$0.03を超えました！")
 
         return items
 
     except Exception as e:
-        print(f"    ⚠ エラー: {e}")
+        print(f"  ⚠ Apify実行エラー: {e}")
         return []
 
+
+# =============================================================================
+# データ整形
+# =============================================================================
 
 def extract_video_data(items):
     """Apifyの生データから必要情報を抽出"""
     videos = {}
+    now_iso = datetime.now(timezone.utc).isoformat()
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=SEARCH_DAYS)
 
     for item in items:
@@ -183,6 +370,7 @@ def extract_video_data(items):
                 "published": pub_date.strftime("%Y-%m-%d"),
                 "url": url,
                 "cover": cover,
+                "fetched_at": now_iso,
             }
 
         except Exception as e:
@@ -191,27 +379,26 @@ def extract_video_data(items):
     return list(videos.values())
 
 
+# =============================================================================
+# フィルタ・ランキング
+# =============================================================================
+
 def is_ng(video):
     """ブラックリストチェック + 日本語フィルタ"""
-    # 説明文本体に日本語が含まれていなければ除外
-    # （ハッシュタグ・アカウント名だけに日本語がある英語動画を排除）
     title = video.get("title", "")
     # ハッシュタグ部分を除去して本文だけで判定
-    import re as _re
-    title_no_tags = _re.sub(r'#\S+', '', title).strip()
+    title_no_tags = re.sub(r'#\S+', '', title).strip()
     if not contains_japanese(title_no_tags):
         return True
 
-    # チャンネル名に「切り抜き」が含まれていたら除外
     if "切り抜き" in video.get("author", ""):
         return True
 
-    # タイトル・アカウント名・ハッシュタグにNGキーワードが含まれていたら除外
     check_text = " ".join([
         video.get("title", ""),
         video.get("author", ""),
         video.get("username", ""),
-        " ".join(video.get("hashtags", [])),
+        " ".join(video.get("hashtags", [])) if isinstance(video.get("hashtags"), list) else "",
     ]).lower()
 
     for kw in NG_KEYWORDS:
@@ -227,35 +414,32 @@ def filter_and_rank(videos):
     ng_count = 0
 
     for v in videos:
-        # ブラックリスト除外
         if is_ng(v):
             ng_count += 1
             continue
 
-        # フォロワー数チェック
         if v["followers"] < MIN_FOLLOWERS or v["followers"] > MAX_FOLLOWERS:
             continue
 
-        # 再生数チェック
         if v["views"] < v["followers"] * VIEW_MULTIPLIER:
             continue
 
-        # コメント数チェック
         if v["comments"] < MIN_COMMENTS:
             continue
 
-        # バズ倍率
         v["growth_rate"] = round(v["views"] / max(v["followers"], 1), 1)
         filtered.append(v)
 
     print(f"  → ブラックリスト除外: {ng_count}件")
     print(f"  → 条件クリア: {len(filtered)}件")
 
-    # バズ倍率でソート
     filtered.sort(key=lambda x: x["growth_rate"], reverse=True)
-
     return filtered
 
+
+# =============================================================================
+# 出力
+# =============================================================================
 
 def save_csv(results):
     """CSV出力"""
@@ -357,32 +541,67 @@ def display_results(results):
         print(f"  {i}. {r['url']}")
 
 
+# =============================================================================
+# メイン
+# =============================================================================
+
 def main():
     print("TikTok VTuber バズランキングツール")
     print("=" * 50)
     print(f"検索ハッシュタグ: {SEARCH_HASHTAGS}")
+    print(f"取得上限 : {ABSOLUTE_MAX_ITEMS}件（ハードリミット）")
     print(f"検索期間: 直近{SEARCH_DAYS}日間")
     print(f"除外キーワード: {NG_KEYWORDS}")
 
-    # 1. ハッシュタグ検索（1回のAPI呼び出しでコスト削減）
-    print(f"\n[1/3] TikTok動画を検索中...")
-    all_items = search_tiktok_all_hashtags(SEARCH_HASHTAGS, max_items=RESULTS_PER_PAGE)
+    if DRY_RUN:
+        print("\n[DRY RUN] Apify は呼び出さず、DB の既存データを表示します。")
 
-    print(f"\n  合計取得: {len(all_items)}件（重複含む）")
+    # 1. DB初期化
+    print(f"\n[1/4] データベース初期化中...")
+    conn = init_db()
+    total, last_fetch = get_db_stats(conn)
+    print(f"  → {DB_FILE} 準備完了（既存 {total}件, 最終取得: {last_fetch}）")
 
-    # 2. データ整形
-    print(f"\n[2/3] 動画データを整形中...")
-    videos = extract_video_data(all_items)
-    print(f"  → ユニーク動画数: {len(videos)}件（期間内）")
+    if not DRY_RUN:
+        # 2. Apify実行
+        print(f"\n[2/4] Apifyで動画を取得中...")
+        raw_items = fetch_tiktok_from_apify()
 
-    # 3. フィルタ＆ランキング
-    print(f"\n[3/3] フィルタリング & ランキング生成中...")
-    results = filter_and_rank(videos)
+        if raw_items:
+            # 3. データ整形 & DB保存
+            print(f"\n[3/4] データを整形・DB保存中...")
+            videos = extract_video_data(raw_items)
+            print(f"  → ユニーク動画数: {len(videos)}件（期間内）")
+
+            if videos:
+                upsert_videos(conn, videos)
+                total_after, _ = get_db_stats(conn)
+                new_count = total_after - total
+                updated_count = len(videos) - new_count
+                print(f"  → 新規追加: {new_count}件 / 既存更新: {updated_count}件")
+        else:
+            print(f"\n[2/4] 取得データが0件でした（DB既存データでランキング生成します）")
+            print(f"\n[3/4] スキップ（新規データなし）")
+
+    else:
+        print(f"\n[2/4] スキップ（DRY RUN）")
+        print(f"\n[3/4] スキップ（DRY RUN）")
+
+    # 4. DB全データからフィルタ & ランキング生成
+    print(f"\n[4/4] DB全データからランキング生成中...")
+    all_videos = load_videos_from_db(conn)
+    print(f"  → DB内の直近{SEARCH_DAYS}日分: {len(all_videos)}件")
+
+    conn.close()
+
+    results = filter_and_rank(all_videos)
 
     # 出力
     display_results(results)
     save_csv(results)
     save_history(results)
+
+    print(f"\n完了!")
 
 
 if __name__ == "__main__":
