@@ -120,7 +120,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # 全データファイルをステージング（存在するものだけ）
-          for f in ranking_history.json ranking_output.csv ranking_all_history.json ranking_all_output.csv tiktok_history.json tiktok_output.csv tweet_history.json tweet_output.csv hints_report.json; do
+          for f in ranking_history.json ranking_output.csv ranking_all_history.json ranking_all_output.csv tiktok_history.json tiktok_output.csv tiktok.db tweet_history.json tweet_output.csv tweets.db hints_report.json; do
             if [ -f "$f" ]; then
               git add "$f"
             fi
