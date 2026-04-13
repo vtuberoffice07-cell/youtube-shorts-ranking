@@ -1,72 +1,72 @@
 {
-  "generated_at": "2026-04-12T23:55:48.607547+00:00",
-  "period": "2026-03-21 〜 2026-04-12",
+  "generated_at": "2026-04-13T15:06:29.896951+00:00",
+  "period": "2026-03-21 〜 2026-04-13",
   "data_counts": {
-    "youtube_kojin_videos": 775,
-    "youtube_kojin_days": 21,
-    "youtube_all_videos": 916,
-    "youtube_all_days": 19,
-    "tweets": 800,
-    "tweet_days": 16,
-    "tiktok_videos": 47,
-    "tiktok_days": 9
+    "youtube_kojin_videos": 805,
+    "youtube_kojin_days": 22,
+    "youtube_all_videos": 959,
+    "youtube_all_days": 20,
+    "tweets": 850,
+    "tweet_days": 17,
+    "tiktok_videos": 55,
+    "tiktok_days": 10
   },
   "youtube_hints": {
     "summary": {
-      "total_videos": 775,
-      "avg_growth": 14.0,
+      "total_videos": 805,
+      "avg_growth": 13.8,
       "median_growth": 6.3,
       "top10_avg_growth": 240.0,
       "top10_avg_duration": 30,
       "top10_avg_subscribers": 1877,
-      "pct_above_10x": 31.0
+      "pct_above_10x": 30.6
     },
     "duration_analysis": {
       "5-15秒": {
-        "count": 260,
-        "avg_growth": 11.2
+        "count": 274,
+        "avg_growth": 11.0
       },
       "16-25秒": {
-        "count": 183,
-        "avg_growth": 13.6
+        "count": 188,
+        "avg_growth": 13.4
       },
       "26-35秒": {
-        "count": 145,
-        "avg_growth": 15.8
+        "count": 149,
+        "avg_growth": 15.6
       },
       "36-45秒": {
-        "count": 70,
-        "avg_growth": 22.0
+        "count": 74,
+        "avg_growth": 21.6
       },
       "46-60秒": {
-        "count": 117,
-        "avg_growth": 14.0
+        "count": 120,
+        "avg_growth": 13.9
       }
     },
     "best_duration": "36-45秒",
     "subscriber_analysis": {
       "500-2,000": {
-        "count": 337,
-        "avg_growth": 16.7
+        "count": 351,
+        "avg_growth": 16.4
       },
       "2,001-5,000": {
-        "count": 198,
-        "avg_growth": 15.6
+        "count": 205,
+        "avg_growth": 15.4
       },
       "5,001-20,000": {
-        "count": 173,
-        "avg_growth": 10.2
+        "count": 179,
+        "avg_growth": 10.1
       },
       "20,001-100,000": {
-        "count": 67,
+        "count": 70,
         "avg_growth": 5.9
       }
     },
     "best_subscriber_band": "500-2,000",
     "day_analysis": {
       "月曜日": {
-        "count": 134,
-        "avg_growth": 20.9
+        "count": 135,
+        "avg_growth": 20.8
       },
       "火曜日": {
         "count": 113,
@@ -81,110 +81,110 @@
         "avg_growth": 14.4
       },
       "金曜日": {
-        "count": 114,
-        "avg_growth": 15.2
+        "count": 115,
+        "avg_growth": 15.1
       },
       "土曜日": {
-        "count": 87,
-        "avg_growth": 10.5
+        "count": 107,
+        "avg_growth": 10.3
       },
       "日曜日": {
-        "count": 96,
-        "avg_growth": 9.3
+        "count": 104,
+        "avg_growth": 9.0
       }
     },
     "best_day": "月曜日",
     "top_hashtags": [
       {
         "tag": "#shorts",
-        "count": 484
+        "count": 505
       },
       {
         "tag": "#vtuber",
-        "count": 457
+        "count": 476
       },
       {
         "tag": "#新人vtuber",
-        "count": 307
+        "count": 318
       },
       {
         "tag": "#vtuber準備中",
-        "count": 111
+        "count": 117
       },
       {
         "tag": "#個人vtuber",
-        "count": 90
+        "count": 97
       },
       {
         "tag": "#個人勢vtuber",
-        "count": 51
+        "count": 54
+      },
+      {
+        "tag": "#バズれ",
+        "count": 48
       },
       {
         "tag": "#イラスト",
         "count": 46
       },
       {
-        "tag": "#バズれ",
-        "count": 46
+        "tag": "#ゲーム実況",
+        "count": 41
       },
       {
         "tag": "#ガンプラ",
-        "count": 40
-      },
-      {
-        "tag": "#ゲーム実況",
-        "count": 39
+        "count": 41
       },
       {
         "tag": "#あるある",
-        "count": 37
+        "count": 38
       },
       {
-        "tag": "#ガンダム",
-        "count": 32
+        "tag": "#スプラトゥーン3",
+        "count": 33
       }
     ],
     "title_length_analysis": {
       "1-10字": {
-        "count": 122,
-        "avg_growth": 14.3
+        "count": 128,
+        "avg_growth": 13.9
       },
       "11-20字": {
-        "count": 327,
-        "avg_growth": 12.5
+        "count": 334,
+        "avg_growth": 12.4
       },
       "21-30字": {
-        "count": 191,
-        "avg_growth": 19.2
+        "count": 202,
+        "avg_growth": 18.6
       },
       "31字+": {
-        "count": 135,
-        "avg_growth": 10.1
+        "count": 141,
+        "avg_growth": 10.3
       }
     },
     "comment_analysis": {
       "10-30": {
-        "count": 419,
-        "avg_growth": 11.6
+        "count": 437,
+        "avg_growth": 11.5
       },
       "31-50": {
-        "count": 112,
-        "avg_growth": 12.1
+        "count": 116,
+        "avg_growth": 11.8
       },
       "51-100": {
-        "count": 106,
-        "avg_growth": 14.6
+        "count": 112,
+        "avg_growth": 14.3
       },
       "100+": {
-        "count": 138,
-        "avg_growth": 22.5
+        "count": 140,
+        "avg_growth": 22.3
       }
     },
     "growth_distribution": {
-      "3-5x": 278,
-      "5-10x": 257,
-      "10-20x": 139,
-      "20-50x": 73,
+      "3-5x": 291,
+      "5-10x": 268,
+      "10-20x": 143,
+      "20-50x": 75,
       "50-100x": 13,
       "100x+": 15
     },
@@ -195,22 +195,22 @@
       },
       {
         "channel": "きさらぎ【下手ゲーム実況】",
-        "count": 30
+        "count": 32
       },
       {
         "channel": "天神れちぇ",
-        "count": 23
+        "count": 24
       },
       {
         "channel": "龍宮るり / Ryugu Ruri Ch.",
         "count": 15
       },
       {
-        "channel": "🌸桜月ふわり🌸",
-        "count": 13
+        "channel": "びびでびるか🩷🪽@1月25日初配信",
+        "count": 14
       },
       {
-        "channel": "びびでびるか🩷🪽@1月25日初配信",
+        "channel": "🌸桜月ふわり🌸",
         "count": 13
       },
       {
@@ -233,49 +233,49 @@
     "top_buzz_reasons": [
       {
         "reason": "笑いやユーモアが視聴者に刺さった",
-        "count": 247
+        "count": 256
       },
       {
         "reason": "かわいさや推しポイントが視聴者の心を掴んだ",
-        "count": 181
+        "count": 189
       },
       {
         "reason": "視聴者からの応援・期待の声が多く伸びに繋がった",
-        "count": 114
+        "count": 120
       },
       {
         "reason": "スキルやクオリティの高さに驚きの声が多数",
-        "count": 74
+        "count": 75
       },
       {
         "reason": "声やビジュアルの魅力が評価された",
-        "count": 56
+        "count": 60
       },
       {
         "reason": "コメントの傾向から明確なバズ要因を特定中",
-        "count": 34
+        "count": 35
       }
     ],
     "top_keywords": [
       {
         "word": "登録",
-        "count": 68
+        "count": 70
       },
       {
         "word": "コメント",
-        "count": 43
+        "count": 45
       },
       {
         "word": "可愛",
-        "count": 35
+        "count": 37
       },
       {
         "word": "高評価",
-        "count": 28
+        "count": 29
       },
       {
         "word": "高評価嬉",
-        "count": 16
+        "count": 17
       },
       {
         "word": "自分",
@@ -287,6 +287,10 @@
       },
       {
         "word": "デビュー",
+        "count": 10
+      },
+      {
+        "word": "頑張",
         "count": 10
       },
       {
@@ -314,10 +318,6 @@
         "count": 8
       },
       {
-        "word": "頑張",
-        "count": 8
-      },
-      {
         "word": "無限",
         "count": 8
       },
@@ -326,75 +326,75 @@
         "count": 7
       },
       {
+        "word": "一緒",
+        "count": 7
+      },
+      {
         "word": "ガンプラ",
         "count": 6
       },
       {
-        "word": "明日",
-        "count": 6
-      },
-      {
-        "word": "絶対",
+        "word": "カッコ",
         "count": 6
       }
     ]
   },
   "youtube_all_hints": {
     "summary": {
-      "total_videos": 916,
+      "total_videos": 959,
       "avg_growth": 17.2,
       "median_growth": 6.8,
-      "top10_avg_growth": 259.1,
-      "top10_avg_duration": 33,
-      "top10_avg_subscribers": 1680,
-      "pct_above_10x": 34.7
+      "top10_avg_growth": 274.7,
+      "top10_avg_duration": 34,
+      "top10_avg_subscribers": 1664,
+      "pct_above_10x": 34.5
     },
     "duration_analysis": {
       "5-15秒": {
-        "count": 270,
-        "avg_growth": 11.6
+        "count": 286,
+        "avg_growth": 11.3
       },
       "16-25秒": {
-        "count": 184,
-        "avg_growth": 17.5
+        "count": 189,
+        "avg_growth": 17.1
       },
       "26-35秒": {
-        "count": 165,
-        "avg_growth": 15.2
+        "count": 173,
+        "avg_growth": 14.9
       },
       "36-45秒": {
-        "count": 85,
-        "avg_growth": 30.0
+        "count": 91,
+        "avg_growth": 33.1
       },
       "46-60秒": {
-        "count": 212,
+        "count": 220,
         "avg_growth": 20.3
       }
     },
     "best_duration": "36-45秒",
     "subscriber_analysis": {
       "500-2,000": {
-        "count": 356,
-        "avg_growth": 20.6
+        "count": 372,
+        "avg_growth": 21.0
       },
       "2,001-5,000": {
-        "count": 236,
-        "avg_growth": 20.4
+        "count": 249,
+        "avg_growth": 20.3
       },
       "5,001-20,000": {
-        "count": 225,
-        "avg_growth": 12.8
+        "count": 234,
+        "avg_growth": 12.7
       },
       "20,001-100,000": {
-        "count": 99,
+        "count": 104,
         "avg_growth": 6.8
       }
     },
     "best_subscriber_band": "500-2,000",
     "day_analysis": {
       "月曜日": {
-        "count": 167,
-        "avg_growth": 26.4
+        "count": 169,
+        "avg_growth": 26.2
       },
       "火曜日": {
         "count": 144,
@@ -409,59 +409,59 @@
         "avg_growth": 13.8
       },
       "金曜日": {
-        "count": 119,
-        "avg_growth": 14.6
+        "count": 121,
+        "avg_growth": 14.8
       },
       "土曜日": {
-        "count": 113,
-        "avg_growth": 15.3
+        "count": 137,
+        "avg_growth": 17.1
       },
       "日曜日": {
-        "count": 145,
-        "avg_growth": 18.2
+        "count": 160,
+        "avg_growth": 17.4
       }
     },
     "best_day": "月曜日",
     "top_hashtags": [
       {
         "tag": "#vtuber",
-        "count": 580
+        "count": 608
       },
       {
         "tag": "#shorts",
-        "count": 516
+        "count": 539
       },
       {
         "tag": "#新人vtuber",
-        "count": 314
+        "count": 327
       },
       {
         "tag": "#vtuber準備中",
-        "count": 110
+        "count": 116
       },
       {
         "tag": "#ホロライブ",
-        "count": 102
+        "count": 108
       },
       {
         "tag": "#個人vtuber",
-        "count": 87
+        "count": 94
       },
       {
         "tag": "#雑学",
-        "count": 77
+        "count": 79
       },
       {
         "tag": "#豆知識",
-        "count": 76
+        "count": 78
       },
       {
         "tag": "#個人勢vtuber",
-        "count": 53
+        "count": 56
       },
       {
         "tag": "#バズれ",
-        "count": 48
+        "count": 51
       },
       {
         "tag": "#イラスト",
@@ -469,89 +469,89 @@
       },
       {
         "tag": "#ゲーム実況",
-        "count": 38
+        "count": 40
       }
     ],
     "title_length_analysis": {
       "1-10字": {
-        "count": 123,
-        "avg_growth": 12.7
+        "count": 129,
+        "avg_growth": 12.4
       },
       "11-20字": {
-        "count": 399,
-        "avg_growth": 15.6
+        "count": 410,
+        "avg_growth": 15.5
       },
       "21-30字": {
-        "count": 225,
-        "avg_growth": 19.4
+        "count": 239,
+        "avg_growth": 18.8
       },
       "31字+": {
-        "count": 169,
-        "avg_growth": 21.1
+        "count": 181,
+        "avg_growth": 22.6
       }
     },
     "comment_analysis": {
       "10-30": {
-        "count": 490,
-        "avg_growth": 12.3
+        "count": 509,
+        "avg_growth": 12.2
       },
       "31-50": {
-        "count": 143,
-        "avg_growth": 14.3
+        "count": 152,
+        "avg_growth": 16.1
       },
       "51-100": {
-        "count": 126,
-        "avg_growth": 26.0
+        "count": 135,
+        "avg_growth": 24.9
       },
       "100+": {
-        "count": 157,
+        "count": 163,
         "avg_growth": 27.8
       }
     },
     "growth_distribution": {
-      "3-5x": 303,
-      "5-10x": 295,
-      "10-20x": 151,
-      "20-50x": 111,
-      "50-100x": 24,
-      "100x+": 32
+      "3-5x": 318,
+      "5-10x": 310,
+      "10-20x": 157,
+      "20-50x": 115,
+      "50-100x": 26,
+      "100x+": 33
     },
     "repeat_creators": [
       {
         "channel": "VTuberしか勝たん",
-        "count": 43
+        "count": 47
       },
       {
         "channel": "月鯨みはね",
         "count": 33
       },
       {
+        "channel": "きさらぎ【下手ゲーム実況】",
+        "count": 31
+      },
+      {
         "channel": "ぶいすぽ日和",
         "count": 30
       },
       {
-        "channel": "きさらぎ【下手ゲーム実況】",
-        "count": 29
-      },
-      {
         "channel": "天神れちぇ",
-        "count": 24
+        "count": 25
       },
       {
         "channel": "ホロライブトリビア",
-        "count": 22
+        "count": 24
       },
       {
         "channel": "ホロライブ瞬間ショート",
         "count": 19
       },
       {
-        "channel": "龍宮るり / Ryugu Ruri Ch.",
+        "channel": "びびでびるか🩷🪽@1月25日初配信",
         "count": 14
       },
       {
-        "channel": "びびでびるか🩷🪽@1月25日初配信",
-        "count": 13
+        "channel": "龍宮るり / Ryugu Ruri Ch.",
+        "count": 14
       },
       {
         "channel": "回胴てん-Kaido Ten-",
@@ -561,49 +561,49 @@
     "top_buzz_reasons": [
       {
         "reason": "笑いやユーモアが視聴者に刺さった",
-        "count": 325
+        "count": 335
       },
       {
         "reason": "かわいさや推しポイントが視聴者の心を掴んだ",
-        "count": 213
+        "count": 224
       },
       {
         "reason": "視聴者からの応援・期待の声が多く伸びに繋がった",
-        "count": 131
+        "count": 138
       },
       {
         "reason": "スキルやクオリティの高さに驚きの声が多数",
-        "count": 77
+        "count": 79
       },
       {
         "reason": "声やビジュアルの魅力が評価された",
-        "count": 61
+        "count": 68
       },
       {
         "reason": "コメントの傾向から明確なバズ要因を特定中",
-        "count": 40
+        "count": 42
       }
     ],
     "top_keywords": [
       {
         "word": "登録",
-        "count": 69
-      },
-      {
-        "word": "可愛",
-        "count": 38
+        "count": 71
       },
       {
         "word": "コメント",
-        "count": 38
+        "count": 41
+      },
+      {
+        "word": "可愛",
+        "count": 40
       },
       {
         "word": "高評価",
-        "count": 25
+        "count": 26
       },
       {
         "word": "高評価嬉",
-        "count": 16
+        "count": 17
       },
       {
         "word": "自分",
@@ -618,6 +618,10 @@
         "count": 11
       },
       {
+        "word": "頑張",
+        "count": 10
+      },
+      {
         "word": "転売",
         "count": 10
       },
@@ -630,15 +634,15 @@
         "count": 9
       },
       {
-        "word": "頑張",
-        "count": 8
+        "word": "最後",
+        "count": 9
       },
       {
         "word": "禁止",
         "count": 8
       },
       {
-        "word": "最後",
+        "word": "面白",
         "count": 8
       },
       {
@@ -650,73 +654,69 @@
         "count": 8
       },
       {
-        "word": "人目指",
+        "word": "一緒",
         "count": 7
       },
       {
-        "word": "拡散",
+        "word": "可能性",
         "count": 7
       },
       {
-        "word": "人間",
-        "count": 7
-      },
-      {
-        "word": "面白",
+        "word": "表情",
         "count": 7
       }
     ]
   },
   "youtube_comparison": {
-    "kojin_avg_growth": 14.0,
+    "kojin_avg_growth": 13.8,
     "all_avg_growth": 17.2,
     "kojin_best_duration": "36-45秒",
     "all_best_duration": "36-45秒",
     "kojin_best_day": "月曜日",
     "all_best_day": "月曜日",
-    "kojin_pct_above_10x": 31.0,
-    "all_pct_above_10x": 34.7,
+    "kojin_pct_above_10x": 30.6,
+    "all_pct_above_10x": 34.5,
     "kojin_best_sub_band": "500-2,000",
     "all_best_sub_band": "500-2,000"
   },
   "tweet_hints": {
     "summary": {
-      "total_tweets": 800,
-      "avg_likes": 3416,
-      "avg_rt": 287,
+      "total_tweets": 850,
+      "avg_likes": 3542,
+      "avg_rt": 293,
       "top10_avg_likes": 33850
     },
     "text_length_analysis": {
       "1-50字": {
-        "count": 134,
-        "avg_likes": 5047
+        "count": 148,
+        "avg_likes": 5348
       },
       "51-100字": {
-        "count": 185,
-        "avg_likes": 4217
+        "count": 197,
+        "avg_likes": 4394
       },
       "101-140字": {
-        "count": 79,
-        "avg_likes": 1651
+        "count": 83,
+        "avg_likes": 1768
       },
       "141字以上": {
-        "count": 402,
-        "avg_likes": 2851
+        "count": 422,
+        "avg_likes": 2860
       }
     },
     "best_text_length": "1-50字",
     "top_hashtags_by_freq": [
       {
         "tag": "#3月のVTuberフォロー祭り‍",
-        "count": 46
+        "count": 47
       },
       {
         "tag": "#Vtuber準備中",
-        "count": 41
+        "count": 44
       },
       {
         "tag": "#IRIAMメンテ中のフォロー祭り",
-        "count": 35
+        "count": 36
       },
       {
         "tag": "#おはようVtuber",
@@ -724,7 +724,7 @@
       },
       {
         "tag": "#3月のVTuberフォロー祭り",
-        "count": 28
+        "count": 29
       },
       {
         "tag": "#おはようVtuber️",
@@ -732,46 +732,46 @@
       },
       {
         "tag": "#Live2D",
-        "count": 23
+        "count": 25
       },
       {
         "tag": "#2月のVTuberフォロー祭り",
-        "count": 22
+        "count": 24
       },
       {
         "tag": "#ぶいあーる",
-        "count": 20
+        "count": 22
       },
       {
         "tag": "#丸猫まる絵",
-        "count": 20
+        "count": 21
       },
       {
         "tag": "#IRIAM準備中",
-        "count": 19
+        "count": 20
+      },
+      {
+        "tag": "#VTuber準備中",
+        "count": 20
       },
       {
         "tag": "#IRIAMライバーと繋がりたい",
         "count": 18
       },
       {
-        "tag": "#VTuber準備中",
+        "tag": "#vtuber準備中",
         "count": 18
       },
       {
-        "tag": "#vtuber準備中",
-        "count": 17
-      },
-      {
         "tag": "#4月のVTuberフォロー祭り",
-        "count": 17
+        "count": 18
       }
     ],
     "top_hashtags_by_likes": [
       {
         "tag": "#Live2DShowcase",
-        "count": 7,
-        "avg_likes": 16800
+        "count": 8,
+        "avg_likes": 16909
       },
       {
         "tag": "#Vtuber",
@@ -779,9 +779,14 @@
         "avg_likes": 8488
       },
       {
+        "tag": "#マリンのお宝",
+        "count": 2,
+        "avg_likes": 7109
+      },
+      {
         "tag": "#Live2D",
-        "count": 23,
-        "avg_likes": 6380
+        "count": 25,
+        "avg_likes": 6635
       },
       {
         "tag": "#にじさんじ",
@@ -795,8 +800,8 @@
       },
       {
         "tag": "#丸猫まる絵",
-        "count": 20,
-        "avg_likes": 4935
+        "count": 21,
+        "avg_likes": 4836
       },
       {
         "tag": "#おはようVtuber️",
@@ -812,21 +817,16 @@
         "tag": "#dance",
         "count": 5,
         "avg_likes": 4299
-      },
-      {
-        "tag": "#shorts",
-        "count": 10,
-        "avg_likes": 4176
       }
     ],
     "media_effect": {
-      "with_media_count": 547,
-      "with_media_avg_likes": 2781,
-      "no_media_count": 253,
-      "no_media_avg_likes": 4790
+      "with_media_count": 574,
+      "with_media_avg_likes": 2892,
+      "no_media_count": 276,
+      "no_media_avg_likes": 4895
     },
     "spread_analysis": {
-      "avg_rt_ratio_pct": 10.6,
+      "avg_rt_ratio_pct": 10.5,
       "high_spread_top5": [
         {
           "ratio": 55.0,
@@ -857,8 +857,8 @@
     },
     "time_analysis": {
       "0時": {
-        "count": 31,
-        "avg_likes": 7127
+        "count": 32,
+        "avg_likes": 7444
       },
       "1時": {
         "count": 12,
@@ -869,8 +869,8 @@
         "avg_likes": 3541
       },
       "3時": {
-        "count": 1,
-        "avg_likes": 10096
+        "count": 2,
+        "avg_likes": 10436
       },
       "4時": {
         "count": 0,
@@ -893,133 +893,133 @@
         "avg_likes": 730
       },
       "9時": {
-        "count": 18,
-        "avg_likes": 730
+        "count": 22,
+        "avg_likes": 726
       },
       "10時": {
-        "count": 17,
-        "avg_likes": 9295
+        "count": 18,
+        "avg_likes": 9149
       },
       "11時": {
-        "count": 42,
-        "avg_likes": 3886
+        "count": 45,
+        "avg_likes": 4122
       },
       "12時": {
-        "count": 75,
-        "avg_likes": 1858
+        "count": 78,
+        "avg_likes": 1947
       },
       "13時": {
-        "count": 10,
-        "avg_likes": 1824
+        "count": 11,
+        "avg_likes": 1704
       },
       "14時": {
-        "count": 16,
-        "avg_likes": 3175
+        "count": 18,
+        "avg_likes": 3230
       },
       "15時": {
-        "count": 16,
-        "avg_likes": 1346
+        "count": 17,
+        "avg_likes": 1315
       },
       "16時": {
-        "count": 32,
-        "avg_likes": 3667
+        "count": 35,
+        "avg_likes": 3684
       },
       "17時": {
-        "count": 45,
-        "avg_likes": 4343
+        "count": 48,
+        "avg_likes": 4556
       },
       "18時": {
-        "count": 73,
-        "avg_likes": 2953
+        "count": 82,
+        "avg_likes": 3141
       },
       "19時": {
-        "count": 71,
-        "avg_likes": 2782
+        "count": 79,
+        "avg_likes": 3077
       },
       "20時": {
-        "count": 65,
-        "avg_likes": 6266
+        "count": 67,
+        "avg_likes": 6465
       },
       "21時": {
-        "count": 63,
-        "avg_likes": 4288
+        "count": 70,
+        "avg_likes": 4519
       },
       "22時": {
         "count": 30,
         "avg_likes": 2706
       },
       "23時": {
-        "count": 17,
-        "avg_likes": 1627
+        "count": 18,
+        "avg_likes": 1662
       }
     },
     "best_posting_hour": "1時",
     "tweet_type_analysis": {
       "お知らせ・告知": {
-        "count": 177,
-        "avg_likes": 3871
+        "count": 185,
+        "avg_likes": 3847
       },
       "イラスト・ビジュアル": {
-        "count": 110,
-        "avg_likes": 3159
+        "count": 114,
+        "avg_likes": 3242
       },
       "フォロー祭り・交流": {
-        "count": 214,
-        "avg_likes": 1061
+        "count": 223,
+        "avg_likes": 1051
       },
       "おはよう・日常": {
-        "count": 147,
-        "avg_likes": 1888
+        "count": 148,
+        "avg_likes": 1884
       },
       "意見・考察": {
-        "count": 285,
-        "avg_likes": 4268
+        "count": 302,
+        "avg_likes": 4377
       },
       "ファンアート・創作": {
-        "count": 23,
-        "avg_likes": 2848
+        "count": 25,
+        "avg_likes": 2755
       }
     },
     "top_keywords": [
       {
         "word": "個人勢",
-        "count": 191
+        "count": 202
       },
       {
         "word": "準備中",
-        "count": 135
+        "count": 147
       },
       {
         "word": "巡回",
-        "count": 101
+        "count": 103
       },
       {
         "word": "デビュー",
-        "count": 95
+        "count": 101
       },
       {
         "word": "今日",
-        "count": 74
+        "count": 77
       },
       {
         "word": "初配信",
-        "count": 58
+        "count": 60
       },
       {
         "word": "配信",
-        "count": 50
+        "count": 53
       },
       {
         "word": "ポスト",
-        "count": 48
+        "count": 50
       },
       {
         "word": "公開",
-        "count": 48
+        "count": 49
       },
       {
         "word": "リスナー",
-        "count": 35
+        "count": 37
       },
       {
         "word": "目指",
@@ -1027,10 +1027,14 @@
       },
       {
         "word": "活動",
-        "count": 29
+        "count": 30
       },
       {
         "word": "投稿",
+        "count": 30
+      },
+      {
+        "word": "ゲーム",
         "count": 28
       },
       {
@@ -1038,7 +1042,7 @@
         "count": 27
       },
       {
-        "word": "ゲーム",
+        "word": "古参",
         "count": 27
       },
       {
@@ -1050,23 +1054,19 @@
         "count": 26
       },
       {
+        "word": "友達",
+        "count": 25
+      },
+      {
         "word": "配信者",
         "count": 25
-      },
-      {
-        "word": "古参",
-        "count": 25
-      },
-      {
-        "word": "本当",
-        "count": 24
       }
     ],
     "repeat_authors": [
       {
         "username": "himono_vtuber",
-        "count": 68,
-        "total_likes": 374499
+        "count": 75,
+        "total_likes": 402017
       },
       {
         "username": "ranshikiumiyu",
@@ -1080,8 +1080,8 @@
       },
       {
         "username": "porurin0",
-        "count": 26,
-        "total_likes": 65838
+        "count": 30,
+        "total_likes": 85213
       },
       {
         "username": "taidaneko_zzz",
@@ -1090,8 +1090,8 @@
       },
       {
         "username": "marune_marune",
-        "count": 25,
-        "total_likes": 105613
+        "count": 26,
+        "total_likes": 108476
       },
       {
         "username": "kano_magicV",
@@ -1100,8 +1100,8 @@
       },
       {
         "username": "EngakuAsobi",
-        "count": 19,
-        "total_likes": 215319
+        "count": 21,
+        "total_likes": 234857
       },
       {
         "username": "kuronomeiru",
@@ -1109,26 +1109,26 @@
         "total_likes": 31753
       },
       {
-        "username": "shiina_000na",
-        "count": 14,
-        "total_likes": 14413
+        "username": "nhk_vtuberradio",
+        "count": 15,
+        "total_likes": 33076
       }
     ]
   },
   "tiktok_hints": {
     "summary": {
-      "total_videos": 47,
-      "avg_growth": 14.8,
+      "total_videos": 55,
+      "avg_growth": 14.3,
       "median_growth": 9.0,
-      "top10_avg_growth": 39.3
+      "top10_avg_growth": 41.8
     },
     "follower_analysis": {
       "100-500": {
-        "count": 20,
-        "avg_growth": 5.7
+        "count": 25,
+        "avg_growth": 5.6
       },
       "501-2,000": {
-        "count": 27,
+        "count": 30,
         "avg_growth": 21.5
       },
       "2,001-10,000": {
@@ -1144,73 +1144,73 @@
     "top_hashtags": [
       {
         "tag": "vtuber",
-        "count": 22
+        "count": 25
       },
       {
         "tag": "vtuber準備中",
-        "count": 20
+        "count": 24
       },
       {
         "tag": "新人vtuber",
-        "count": 19
+        "count": 22
       },
       {
         "tag": "dance",
-        "count": 7
+        "count": 8
       },
       {
         "tag": "踊ってみた",
-        "count": 7
+        "count": 8
       },
       {
         "tag": "超かぐや姫",
-        "count": 7
+        "count": 8
       },
       {
         "tag": "ray",
-        "count": 7
+        "count": 8
       },
       {
         "tag": "セルフ受肉vtuber",
-        "count": 7
+        "count": 8
       },
       {
         "tag": "おすすめ",
-        "count": 7
+        "count": 8
       },
       {
         "tag": "avvy",
-        "count": 7
+        "count": 8
       }
     ],
     "repeat_creators": [
       {
         "author": "EXTRA egg ch.",
-        "count": 7
+        "count": 8
       },
       {
         "author": "深宵いお@4/3初配信",
-        "count": 7
+        "count": 8
       },
       {
         "author": "菫華ゆめ",
-        "count": 7
+        "count": 8
       },
       {
         "author": "神代れいん",
-        "count": 7
+        "count": 8
       },
       {
         "author": "どぅ",
+        "count": 6
+      },
+      {
+        "author": "眠夢りまこ",
         "count": 5
       },
       {
         "author": "花守まめ🌼🫛4月11日デビュー",
-        "count": 3
-      },
-      {
-        "author": "眠夢りまこ",
-        "count": 3
+        "count": 4
       },
       {
         "author": "二ツ野なぎは",
