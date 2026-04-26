@@ -133,23 +133,29 @@
   .auth-error { color: #e94560; font-size: 13px; margin-top: 12px; display: none; }
   body.authed { overflow: auto; }
 
-  /* Twitter Timeline */
+  /* Twitter Grid */
   .tw-timeline {
-    max-width: 640px;
+    max-width: 1600px;
     margin: 0 auto;
     padding: 0 16px 32px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 14px;
+  }
+  @media (max-width: 720px) {
+    .tw-timeline { grid-template-columns: 1fr; }
   }
   .tw-tweet {
     background: #16213e;
     border: 1px solid #253554;
-    border-radius: 16px;
-    padding: 16px;
-    margin-bottom: 12px;
+    border-radius: 14px;
+    padding: 14px;
     transition: border-color 0.2s;
     cursor: pointer;
     text-decoration: none;
     color: inherit;
-    display: block;
+    display: flex;
+    flex-direction: column;
   }
   .tw-tweet:hover { border-color: #1da1f2; }
   .tw-tweet-head {
@@ -159,8 +165,8 @@
     margin-bottom: 10px;
   }
   .tw-avatar {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     object-fit: cover;
     flex-shrink: 0;
@@ -169,25 +175,25 @@
   .tw-author-info { flex: 1; min-width: 0; }
   .tw-author-name {
     font-weight: bold;
-    font-size: 15px;
+    font-size: 14px;
     color: #fff;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
   .tw-author-handle {
-    font-size: 13px;
+    font-size: 12px;
     color: #8899a6;
   }
   .tw-rank-badge {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    font-size: 14px;
+    font-size: 13px;
     flex-shrink: 0;
     background: #253554;
     color: #8899a6;
@@ -196,34 +202,35 @@
   .tw-rank-badge.r2 { background: linear-gradient(135deg, #C0C0C0, #A0A0A0); color: #1a1a2e; }
   .tw-rank-badge.r3 { background: linear-gradient(135deg, #CD7F32, #A0522D); color: #fff; }
   .tw-tweet-text {
-    font-size: 15px;
-    line-height: 1.6;
+    font-size: 14px;
+    line-height: 1.55;
     color: #e0e0e0;
     white-space: pre-wrap;
     word-break: break-word;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     display: -webkit-box;
-    -webkit-line-clamp: 6;
+    -webkit-line-clamp: 4;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
   .tw-media {
-    border-radius: 12px;
+    border-radius: 10px;
     overflow: hidden;
-    margin-bottom: 12px;
-    max-height: 300px;
+    margin-bottom: 10px;
+    max-height: 200px;
   }
   .tw-media img {
     width: 100%;
     display: block;
     object-fit: cover;
-    max-height: 300px;
+    max-height: 200px;
   }
   .tw-engagement {
     display: flex;
     gap: 4px;
     padding-top: 10px;
     border-top: 1px solid #253554;
+    margin-top: auto;
   }
   .tw-eng-item {
     flex: 1;
@@ -231,11 +238,11 @@
     flex-direction: column;
     align-items: center;
     gap: 2px;
-    font-size: 11px;
+    font-size: 10px;
     color: #8899a6;
   }
   .tw-eng-item .tw-eng-val {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: bold;
     color: #e0e0e0;
   }
@@ -247,11 +254,11 @@
     justify-content: space-between;
     align-items: center;
     margin-top: 8px;
-    font-size: 12px;
+    font-size: 11px;
     color: #8899a6;
   }
   .tw-open-btn {
-    font-size: 12px;
+    font-size: 11px;
     color: #1da1f2;
     text-decoration: none;
     font-weight: bold;
@@ -1852,6 +1859,32 @@ let ttAllData = [];
 let ttCurrentSort = { key: 'growth_rate', desc: true };
 let ttCurrentView = 'grid';
 
+/**
+ * TikTok動画URLからIDを抽出し、ローカルサムネイルパスを返す。
+ * 形式: https://www.tiktok.com/@user/video/1234567890 → tiktok_thumbs/1234567890.jpeg
+ */
+function ttLocalThumb(videoUrl) {
+  if (!videoUrl) return '';
+  const m = videoUrl.match(/\/video\/(\d+)/);
+  return m ? 'tiktok_thumbs/' + m[1] + '.jpeg' : '';
+}
+
+/**
+ * サムネイル読み込み失敗時のフォールバック。
+ * data-fallback 属性にCDN URLがあればそれを試し、なければプレースホルダー表示。
+ */
+function ttOnThumbError(img) {
+  const fallback = img.getAttribute('data-fallback');
+  if (fallback) {
+    img.removeAttribute('data-fallback');
+    img.src = fallback;
+  } else {
+    img.style.display = 'none';
+    const ph = img.nextElementSibling;
+    if (ph) ph.style.display = 'flex';
+  }
+}
+
 // View toggle
 document.getElementById('ttViewTable').addEventListener('click', () => {
   ttCurrentView = 'table';
@@ -1981,8 +2014,11 @@ function ttRenderTable(data) {
     const growthClass = (d.growth_rate||0) >= 15 ? 'growth-high' : (d.growth_rate||0) >= 8 ? 'growth-mid' : 'growth-low';
     const barWidth = ((d.growth_rate||0) / maxGrowth * 100).toFixed(1);
     const linkHtml = d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" class="link-btn" style="background:#00f2ea;">再生</a>` : '';
-    const coverHtml = d.cover
-      ? `<a href="${esc(d.url)}" target="_blank" rel="noopener"><img src="${esc(d.cover)}" alt="" loading="lazy" style="width:72px;height:96px;object-fit:cover;border-radius:6px;" onerror="this.style.display='none';this.parentElement.innerHTML='<div style=\\'width:72px;height:96px;background:#1a1a2e;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:24px;color:#ff0050\\'>&#9654;</div>';"></a>`
+    const localThumb = ttLocalThumb(d.url);
+    const thumbPrimary = localThumb || (d.cover && !d.cover.startsWith('http') ? d.cover : '');
+    const thumbFallback = d.cover && d.cover.startsWith('http') ? d.cover : '';
+    const coverHtml = (thumbPrimary || thumbFallback)
+      ? `<a href="${esc(d.url)}" target="_blank" rel="noopener"><img src="${esc(thumbPrimary || thumbFallback)}" alt="" loading="lazy" style="width:72px;height:96px;object-fit:cover;border-radius:6px;"${thumbPrimary && thumbFallback ? ` data-fallback="${esc(thumbFallback)}"` : ''} onerror="ttOnThumbError(this)"><div style="display:none;width:72px;height:96px;background:#1a1a2e;border-radius:6px;align-items:center;justify-content:center;font-size:24px;color:#ff0050;">&#9654;</div></a>`
       : '';
 
     return `<tr>
@@ -2014,14 +2050,17 @@ function ttRenderGrid(data) {
     const rank = i + 1;
     const rankColor = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
     const link = d.url ? esc(d.url) : '#';
-    const coverSrc = d.cover ? esc(d.cover) : '';
+    const localThumb = ttLocalThumb(d.url);
+    const thumbPrimary = localThumb || (d.cover && !d.cover.startsWith('http') ? d.cover : '');
+    const thumbFallback = d.cover && d.cover.startsWith('http') ? d.cover : '';
+    const coverSrc = thumbPrimary || thumbFallback;
 
     return `<a href="${link}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
       <div class="grid-card">
         <div class="grid-card-rank ${rankColor}">${rank}</div>
         <div class="grid-card-growth" style="background:rgba(255,0,80,0.9);">${d.growth_rate||0}x</div>
         ${coverSrc
-          ? `<img class="grid-card-thumb" src="${coverSrc}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+          ? `<img class="grid-card-thumb" src="${esc(coverSrc)}" alt="" loading="lazy"${thumbPrimary && thumbFallback ? ` data-fallback="${esc(thumbFallback)}"` : ''} onerror="ttOnThumbError(this)">
              <div class="grid-card-thumb tt-placeholder" style="display:none;background:#1a1a2e;align-items:center;justify-content:center;font-size:36px;color:#ff0050;">&#9654;</div>`
           : '<div class="grid-card-thumb tt-placeholder" style="background:#1a1a2e;display:flex;align-items:center;justify-content:center;font-size:36px;color:#ff0050;">&#9654;</div>'}
         <div class="grid-card-body">
@@ -2186,8 +2225,6 @@ function twRenderTimeline(data) {
       <div class="tw-engagement">
         <div class="tw-eng-item likes"><span class="tw-eng-val">${formatNum(d.like_count||0)}</span>いいね</div>
         <div class="tw-eng-item rts"><span class="tw-eng-val">${formatNum(d.retweet_count||0)}</span>RT</div>
-        <div class="tw-eng-item"><span class="tw-eng-val">${formatNum(d.reply_count||0)}</span>リプライ</div>
-        <div class="tw-eng-item"><span class="tw-eng-val">${formatNum(d.quote_count||0)}</span>引用</div>
         <div class="tw-eng-item imps"><span class="tw-eng-val">${formatNum(d.impression_count||0)}</span>インプ</div>
       </div>
       <div class="tw-tweet-meta">
