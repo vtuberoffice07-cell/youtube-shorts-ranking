@@ -1,12 +1,12 @@
 {
-  "generated_at": "2026-04-26T05:17:57.177527+00:00",
+  "generated_at": "2026-04-26T06:22:11.677539+00:00",
   "period": "2026-03-21 〜 2026-04-26",
   "data_counts": {
     "youtube_kojin_videos": 1255,
     "youtube_kojin_days": 35,
     "youtube_all_videos": 1450,
     "youtube_all_days": 33,
-    "tweets": 1460,
+    "tweets": 1461,
     "tweet_days": 30,
     "tiktok_videos": 249,
     "tiktok_days": 23
@@ -681,8 +681,8 @@
   },
   "tweet_hints": {
     "summary": {
-      "total_tweets": 1460,
-      "avg_likes": 4050,
+      "total_tweets": 1461,
+      "avg_likes": 4048,
       "avg_rt": 367,
       "top10_avg_likes": 36747
     },
@@ -700,8 +700,8 @@
         "avg_likes": 3545
       },
       "141字以上": {
-        "count": 732,
-        "avg_likes": 3000
+        "count": 733,
+        "avg_likes": 2996
       }
     },
     "best_text_length": "1-50字",
@@ -820,10 +820,10 @@
       }
     ],
     "media_effect": {
-      "with_media_count": 971,
-      "with_media_avg_likes": 3258,
+      "with_media_count": 972,
+      "with_media_avg_likes": 3256,
       "no_media_count": 489,
-      "no_media_avg_likes": 5622
+      "no_media_avg_likes": 5623
     },
     "spread_analysis": {
       "avg_rt_ratio_pct": 10.9,
@@ -878,7 +878,7 @@
       },
       "5時": {
         "count": 3,
-        "avg_likes": 613
+        "avg_likes": 629
       },
       "6時": {
         "count": 59,
@@ -905,8 +905,8 @@
         "avg_likes": 5081
       },
       "12時": {
-        "count": 120,
-        "avg_likes": 2231
+        "count": 121,
+        "avg_likes": 2218
       },
       "13時": {
         "count": 21,
@@ -926,7 +926,7 @@
       },
       "17時": {
         "count": 95,
-        "avg_likes": 5050
+        "avg_likes": 5051
       },
       "18時": {
         "count": 154,
@@ -942,11 +942,11 @@
       },
       "21時": {
         "count": 150,
-        "avg_likes": 4791
+        "avg_likes": 4792
       },
       "22時": {
         "count": 66,
-        "avg_likes": 3513
+        "avg_likes": 3515
       },
       "23時": {
         "count": 40,
@@ -956,8 +956,8 @@
     "best_posting_hour": "10時",
     "tweet_type_analysis": {
       "お知らせ・告知": {
-        "count": 303,
-        "avg_likes": 3858
+        "count": 304,
+        "avg_likes": 3847
       },
       "イラスト・ビジュアル": {
         "count": 180,
@@ -969,11 +969,11 @@
       },
       "おはよう・日常": {
         "count": 213,
-        "avg_likes": 1832
+        "avg_likes": 1833
       },
       "意見・考察": {
-        "count": 564,
-        "avg_likes": 4958
+        "count": 565,
+        "avg_likes": 4951
       },
       "ファンアート・創作": {
         "count": 35,
@@ -983,7 +983,7 @@
     "top_keywords": [
       {
         "word": "個人勢",
-        "count": 334
+        "count": 335
       },
       {
         "word": "準備中",
@@ -991,7 +991,7 @@
       },
       {
         "word": "デビュー",
-        "count": 169
+        "count": 170
       },
       {
         "word": "巡回",
@@ -1043,7 +1043,7 @@
       },
       {
         "word": "目指",
-        "count": 45
+        "count": 46
       },
       {
         "word": "雑談",
@@ -1096,7 +1096,7 @@
       {
         "username": "nhk_vtuberradio",
         "count": 38,
-        "total_likes": 83011
+        "total_likes": 83056
       },
       {
         "username": "EngakuAsobi",
