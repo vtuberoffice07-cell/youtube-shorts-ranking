@@ -176,10 +176,13 @@ def fetch_tweets_from_apify():
 
     try:
         # ─── kaitoeasyapi 用リクエストパラメータ（値を変更しないこと） ───
+        # queryType="Latest": 検索クエリに合致する最新ツイートを取得
+        # min_faves:500 はクエリ文字列側で効くので、最新かつ人気のツイートが取れる
+        # 1日2回の実行で直近24時間の投稿を確実にDBへ蓄積し、日次ランキング(get_top_tweets_last_24h)を機能させる
         run_input = {
             "twitterContent": SEARCH_QUERY,
             "maxItems": ABSOLUTE_MAX_ITEMS,   # 50件固定
-            "queryType": "Top",               # いいね数が多い順
+            "queryType": "Latest",            # 最新順（直近の人気ツイートをDBへ蓄積するため）
             "lang": "ja",
             "min_faves": 500,                 # いいね500以上（個人勢向けに閾値を下げる）
         }
@@ -466,6 +469,34 @@ def get_db_stats(conn):
     return row[0] or 0, row[1] or "N/A"
 
 
+def get_top_tweets_last_24h(conn, limit=ABSOLUTE_MAX_ITEMS):
+    """直近24時間に投稿されたツイートを like_count 降順で取得する。
+    日次のスナップショットランキングを生成するための関数。
+    posted_at は ISO8601（UTC）で保存されているので文字列比較で時系列判定可能。"""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+    rows = conn.execute(
+        "SELECT id, text, author_name, author_username, author_icon_url, "
+        "like_count, retweet_count, reply_count, quote_count, "
+        "bookmark_count, impression_count, posted_at, tweet_url, "
+        "media_urls, fetched_at FROM tweets "
+        "WHERE posted_at >= ? "
+        "ORDER BY like_count DESC LIMIT ?",
+        (cutoff, limit),
+    ).fetchall()
+    return [
+        {
+            "id": r[0], "text": r[1], "author_name": r[2],
+            "author_username": r[3], "author_icon_url": r[4],
+            "like_count": r[5], "retweet_count": r[6],
+            "reply_count": r[7], "quote_count": r[8],
+            "bookmark_count": r[9], "impression_count": r[10],
+            "posted_at": r[11], "tweet_url": r[12],
+            "media_urls": json.loads(r[13]), "fetched_at": r[14],
+        }
+        for r in rows
+    ]
+
+
 def main():
     print("VTuber バズツイートランキングツール")
     print("=" * 50)
@@ -476,60 +507,48 @@ def main():
         print("\n[DRY RUN] Apify は呼び出さず、DB の既存データを表示します。")
 
     # 1. DB初期化
-    print(f"\n[1/4] データベース初期化中...")
+    print(f"\n[1/5] データベース初期化中...")
     conn = init_db()
     total, last_fetch = get_db_stats(conn)
     print(f"  → {DB_FILE} 準備完了（既存 {total}件, 最終取得: {last_fetch}）")
 
     if not DRY_RUN:
         # 2. Apify実行
-        print(f"\n[2/4] Apifyでツイートを取得中...")
+        print(f"\n[2/5] Apifyでツイートを取得中...")
         raw_items = fetch_tweets_from_apify()
 
-        if not raw_items:
-            print("取得データが0件のため終了します。")
-            conn.close()
-            return
+        if raw_items:
+            # 3. データ整形
+            print(f"\n[3/5] データを整形中...")
+            tweets = extract_tweet_data(raw_items)
+            print(f"  → ユニークツイート数: {len(tweets)}件")
 
-        # 3. データ整形
-        print(f"\n[3/4] データを整形中...")
-        tweets = extract_tweet_data(raw_items)
-        print(f"  → ユニークツイート数: {len(tweets)}件")
+            # 4. DB保存（UPSERT: 既存ツイートはいいね数・RT数等を最新値に更新）
+            print(f"\n[4/5] データベースに保存中...")
+            upsert_tweets(conn, tweets)
 
-        # 4. DB保存（UPSERT: 既存ツイートはいいね数・RT数等を最新値に更新）
-        print(f"\n[4/4] データベースに保存中...")
-        upsert_tweets(conn, tweets)
-
-        # 保存後の統計
-        total_after, _ = get_db_stats(conn)
-        new_count = total_after - total
-        updated_count = len(tweets) - new_count
-        print(f"  → 新規追加: {new_count}件 / 既存更新: {updated_count}件")
+            # 保存後の統計
+            total_after, _ = get_db_stats(conn)
+            new_count = total_after - total
+            updated_count = len(tweets) - new_count
+            print(f"  → 新規追加: {new_count}件 / 既存更新: {updated_count}件")
+        else:
+            print("\n[2/5] 取得データが0件でした（DB既存データで日次ランキング生成します）")
+            print("\n[3/5] スキップ（新規データなし）")
+            print("\n[4/5] スキップ（新規データなし）")
     else:
-        # DRY RUN: DB から全ツイートを読み出し
-        rows = conn.execute(
-            "SELECT id, text, author_name, author_username, author_icon_url, "
-            "like_count, retweet_count, reply_count, quote_count, "
-            "bookmark_count, impression_count, posted_at, tweet_url, "
-            "media_urls, fetched_at FROM tweets ORDER BY like_count DESC"
-        ).fetchall()
-        tweets = [
-            {
-                "id": r[0], "text": r[1], "author_name": r[2],
-                "author_username": r[3], "author_icon_url": r[4],
-                "like_count": r[5], "retweet_count": r[6],
-                "reply_count": r[7], "quote_count": r[8],
-                "bookmark_count": r[9], "impression_count": r[10],
-                "posted_at": r[11], "tweet_url": r[12],
-                "media_urls": json.loads(r[13]), "fetched_at": r[14],
-            }
-            for r in rows
-        ]
+        print(f"\n[2/5] スキップ（DRY RUN）")
+        print(f"\n[3/5] スキップ（DRY RUN）")
+        print(f"\n[4/5] スキップ（DRY RUN）")
+
+    # 5. 直近24時間に投稿されたツイートのみで日次ランキングを生成
+    print(f"\n[5/5] 直近24時間の日次ランキングを生成中...")
+    ranked = get_top_tweets_last_24h(conn)
+    print(f"  → 直近24h投稿の対象: {len(ranked)}件（上位 {ABSOLUTE_MAX_ITEMS} 件まで）")
 
     conn.close()
 
-    # ランキング表示 & ファイル出力
-    ranked = rank_tweets(tweets)
+    # ランキング表示 & ファイル出力（直近24時間のスナップショット）
     display_results(ranked)
     save_csv(ranked)
     save_history(ranked)
