@@ -126,6 +126,11 @@ jobs:
             fi
           done
 
+          # TikTokサムネイル画像をステージング
+          if [ -d "tiktok_thumbs" ]; then
+            git add tiktok_thumbs/
+          fi
+
           # 変更がある場合のみコミット
           if git diff --cached --quiet; then
             echo "⚠️ コミットする変更がありません（スクリプトがファイルを更新しなかった可能性）"
