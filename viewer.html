@@ -208,22 +208,72 @@
     white-space: pre-wrap;
     word-break: break-word;
     margin-bottom: 10px;
-    display: -webkit-box;
-    -webkit-line-clamp: 4;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
   }
   .tw-media {
     border-radius: 10px;
     overflow: hidden;
     margin-bottom: 10px;
-    max-height: 200px;
+    max-height: 240px;
   }
   .tw-media img {
     width: 100%;
     display: block;
     object-fit: cover;
-    max-height: 200px;
+    max-height: 240px;
+  }
+  /* 引用元ツイート（quoted） */
+  .tw-quoted {
+    border: 1px solid #2c3e5d;
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    background: #0f1a30;
+  }
+  .tw-quoted-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .tw-quoted-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #1a1a2e;
+    flex-shrink: 0;
+  }
+  .tw-quoted-name {
+    font-size: 12px;
+    font-weight: bold;
+    color: #cfd8e3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tw-quoted-handle {
+    font-size: 11px;
+    color: #8899a6;
+    white-space: nowrap;
+  }
+  .tw-quoted-text {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #c0c8d4;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .tw-quoted-media {
+    margin-top: 6px;
+    border-radius: 8px;
+    overflow: hidden;
+    max-height: 160px;
+  }
+  .tw-quoted-media img {
+    width: 100%;
+    display: block;
+    object-fit: cover;
+    max-height: 160px;
   }
   .tw-engagement {
     display: flex;
@@ -2211,6 +2261,29 @@ function twRenderTimeline(data) {
       ? `<div class="tw-media"><img src="${mediaUrl}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'"></div>`
       : '';
 
+    // 引用元ツイート（あれば本文の下に小さくカード表示）
+    let quotedHtml = '';
+    const q = d.quoted;
+    if (q && (q.text || q.author_username)) {
+      const qIcon = q.author_icon_url ? esc(q.author_icon_url) : '';
+      const qAvatar = qIcon
+        ? `<img class="tw-quoted-avatar" src="${qIcon}" alt="" onerror="this.style.display='none'">`
+        : `<div class="tw-quoted-avatar" style="display:flex;align-items:center;justify-content:center;background:#253554;color:#1da1f2;font-size:11px;font-weight:bold;">${esc((q.author_name||'?').charAt(0))}</div>`;
+      const qMediaUrl = (q.media_urls && q.media_urls.length > 0) ? esc(q.media_urls[0]) : '';
+      const qMediaHtml = qMediaUrl
+        ? `<div class="tw-quoted-media"><img src="${qMediaUrl}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'"></div>`
+        : '';
+      quotedHtml = `<div class="tw-quoted">
+        <div class="tw-quoted-head">
+          ${qAvatar}
+          <div class="tw-quoted-name">${esc(q.author_name||'')}</div>
+          <div class="tw-quoted-handle">@${esc(q.author_username||'')}</div>
+        </div>
+        <div class="tw-quoted-text">${esc(q.text||'')}</div>
+        ${qMediaHtml}
+      </div>`;
+    }
+
     return `<a href="${link}" target="_blank" rel="noopener" class="tw-tweet">
       <div class="tw-tweet-head">
         ${avatarHtml}
@@ -2222,6 +2295,7 @@ function twRenderTimeline(data) {
       </div>
       <div class="tw-tweet-text">${tweetText}</div>
       ${mediaHtml}
+      ${quotedHtml}
       <div class="tw-engagement">
         <div class="tw-eng-item likes"><span class="tw-eng-val">${formatNum(d.like_count||0)}</span>いいね</div>
         <div class="tw-eng-item rts"><span class="tw-eng-val">${formatNum(d.retweet_count||0)}</span>RT</div>

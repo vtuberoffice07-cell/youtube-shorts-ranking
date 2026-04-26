@@ -98,19 +98,25 @@ def init_db():
     conn.execute("""
         CREATE INDEX IF NOT EXISTS idx_tweets_posted_at ON tweets(posted_at DESC)
     """)
+    # 既存DBへ quoted_json カラム追加（引用元ツイートのJSON保存用、未追加なら追加）
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(tweets)").fetchall()}
+    if "quoted_json" not in cols:
+        conn.execute("ALTER TABLE tweets ADD COLUMN quoted_json TEXT NOT NULL DEFAULT ''")
     conn.commit()
     return conn
 
 
 def upsert_tweet(conn, tweet):
     """ツイートを UPSERT（存在すれば更新、なければ挿入）"""
+    quoted_obj = tweet.get("quoted") or None
+    quoted_json = json.dumps(quoted_obj, ensure_ascii=False) if quoted_obj else ""
     conn.execute("""
         INSERT INTO tweets (
             id, text, author_name, author_username, author_icon_url,
             like_count, retweet_count, reply_count, quote_count,
             bookmark_count, impression_count,
-            posted_at, tweet_url, media_urls, fetched_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            posted_at, tweet_url, media_urls, fetched_at, quoted_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             text = excluded.text,
             author_name = excluded.author_name,
@@ -125,7 +131,8 @@ def upsert_tweet(conn, tweet):
             posted_at = excluded.posted_at,
             tweet_url = excluded.tweet_url,
             media_urls = excluded.media_urls,
-            fetched_at = excluded.fetched_at
+            fetched_at = excluded.fetched_at,
+            quoted_json = excluded.quoted_json
     """, (
         tweet["id"],
         tweet["text"],
@@ -142,6 +149,7 @@ def upsert_tweet(conn, tweet):
         tweet["tweet_url"],
         json.dumps(tweet["media_urls"], ensure_ascii=False),
         tweet["fetched_at"],
+        quoted_json,
     ))
 
 
@@ -250,6 +258,52 @@ def _parse_date(raw_date):
         return raw_date
 
 
+def _extract_media_urls(item):
+    """ツイートからメディアURLリストを取り出す（kaitoeasyapi形式とフォールバック対応）"""
+    media_urls = []
+    ext_entities = item.get("extendedEntities") or {}
+    media_list = ext_entities.get("media") or []
+    if not media_list:
+        media_list = item.get("media") or []
+    for m in media_list:
+        if isinstance(m, dict):
+            u = m.get("media_url_https", "") or m.get("url", "")
+            if u:
+                media_urls.append(u)
+        elif isinstance(m, str):
+            media_urls.append(m)
+    return media_urls
+
+
+def _extract_quoted(quoted_obj):
+    """quoted_tweet 構造から表示に必要なフィールドだけを取り出す。
+    quoted が無ければ None を返す。"""
+    if not isinstance(quoted_obj, dict):
+        return None
+    q_author = quoted_obj.get("author") or {}
+    q_id = str(quoted_obj.get("id", "") or "")
+    q_text = quoted_obj.get("text", "") or ""
+    q_author_name = q_author.get("name", "") or ""
+    q_author_username = q_author.get("userName", "") or ""
+    q_author_icon = q_author.get("profilePicture", "") or ""
+    q_url = (
+        quoted_obj.get("url")
+        or quoted_obj.get("twitterUrl")
+        or (f"https://x.com/{q_author_username}/status/{q_id}" if q_id and q_author_username else "")
+    )
+    if not (q_text or q_author_username):
+        return None
+    return {
+        "id": q_id,
+        "text": q_text,
+        "author_name": q_author_name,
+        "author_username": q_author_username,
+        "author_icon_url": q_author_icon,
+        "url": q_url,
+        "media_urls": _extract_media_urls(quoted_obj),
+    }
+
+
 def extract_tweet_data(items):
     """Apify (kaitoeasyapi/twitter-x-data-tweet-scraper) の生データを整形
 
@@ -304,19 +358,10 @@ def extract_tweet_data(items):
 
             # --- メディアURL ---
             # kaitoeasyapi形式: extendedEntities.media[].media_url_https
-            media_urls = []
-            ext_entities = item.get("extendedEntities", {}) or {}
-            media_list = ext_entities.get("media", []) or []
-            # フォールバック: トップレベルの media キーも確認
-            if not media_list:
-                media_list = item.get("media", []) or []
-            for m in media_list:
-                if isinstance(m, dict):
-                    u = m.get("media_url_https", "") or m.get("url", "")
-                    if u:
-                        media_urls.append(u)
-                elif isinstance(m, str):
-                    media_urls.append(m)
+            media_urls = _extract_media_urls(item)
+
+            # --- 引用ツイート（quoted_tweet があれば抽出） ---
+            quoted_data = _extract_quoted(item.get("quoted_tweet"))
 
             tweets[tweet_id] = {
                 "id": tweet_id,
@@ -333,6 +378,7 @@ def extract_tweet_data(items):
                 "posted_at": posted_at,
                 "tweet_url": tweet_url,
                 "media_urls": media_urls,
+                "quoted": quoted_data,
                 "fetched_at": now_iso,
             }
 
@@ -407,7 +453,7 @@ def save_history(tweets):
     history[today] = [
         {
             "rank": i,
-            "text": t["text"][:200],
+            "text": t["text"],   # 全文を保存（過去の[:200]切り詰めをやめる）
             "author_name": t["author_name"],
             "author_username": t["author_username"],
             "author_icon_url": t["author_icon_url"],
@@ -419,6 +465,7 @@ def save_history(tweets):
             "posted_at": t["posted_at"],
             "url": t["tweet_url"],
             "media_urls": t["media_urls"],
+            "quoted": t.get("quoted"),  # 引用元ツイート（無ければ null）
         }
         for i, t in enumerate(tweets, 1)
     ]
@@ -478,13 +525,20 @@ def get_top_tweets_last_24h(conn, limit=ABSOLUTE_MAX_ITEMS):
         "SELECT id, text, author_name, author_username, author_icon_url, "
         "like_count, retweet_count, reply_count, quote_count, "
         "bookmark_count, impression_count, posted_at, tweet_url, "
-        "media_urls, fetched_at FROM tweets "
+        "media_urls, fetched_at, quoted_json FROM tweets "
         "WHERE posted_at >= ? "
         "ORDER BY like_count DESC LIMIT ?",
         (cutoff, limit),
     ).fetchall()
-    return [
-        {
+    result = []
+    for r in rows:
+        quoted = None
+        if r[15]:
+            try:
+                quoted = json.loads(r[15])
+            except (json.JSONDecodeError, TypeError):
+                quoted = None
+        result.append({
             "id": r[0], "text": r[1], "author_name": r[2],
             "author_username": r[3], "author_icon_url": r[4],
             "like_count": r[5], "retweet_count": r[6],
@@ -492,9 +546,9 @@ def get_top_tweets_last_24h(conn, limit=ABSOLUTE_MAX_ITEMS):
             "bookmark_count": r[9], "impression_count": r[10],
             "posted_at": r[11], "tweet_url": r[12],
             "media_urls": json.loads(r[13]), "fetched_at": r[14],
-        }
-        for r in rows
-    ]
+            "quoted": quoted,
+        })
+    return result
 
 
 def main():
