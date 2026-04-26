@@ -228,9 +228,11 @@ def filter_and_rank(videos, channels):
         sub_count = channel_info["subscriberCount"]
         view_count = int(video["statistics"].get("viewCount", 0))
         comment_count = int(video["statistics"].get("commentCount", 0))
-        duration_sec = parse_iso8601_duration(
-            video["contentDetails"]["duration"]
-        )
+        # ライブ配信中・地域制限・削除済み動画は contentDetails.duration が欠落することがあるためスキップ
+        duration_iso = (video.get("contentDetails") or {}).get("duration")
+        if not duration_iso:
+            continue
+        duration_sec = parse_iso8601_duration(duration_iso)
 
         # フィルタ条件チェック
         if not (MIN_SUBSCRIBERS <= sub_count <= MAX_SUBSCRIBERS):

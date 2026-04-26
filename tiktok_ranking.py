@@ -16,7 +16,10 @@ import re
 import sqlite3
 import sys
 import unicodedata
+import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from apify_client import ApifyClient
 from dotenv import load_dotenv
@@ -82,6 +85,7 @@ SAVE_RAW_DEBUG = "--debug" in sys.argv
 DB_FILE = "tiktok.db"
 HISTORY_FILE = "tiktok_history.json"
 CSV_FILE = "tiktok_output.csv"
+THUMBS_DIR = "tiktok_thumbs"
 
 
 # =============================================================================
@@ -284,6 +288,187 @@ def fetch_tiktok_from_apify():
 
 
 # =============================================================================
+# サムネイル ローカル保存
+# =============================================================================
+
+_BROWSER_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                  "AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/125.0.0.0 Safari/537.36",
+    "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+    "Referer": "https://www.tiktok.com/",
+}
+
+
+def _download_image(url, dest_path):
+    """URLから画像をダウンロードして dest_path に保存。成功なら True。"""
+    try:
+        req = urllib.request.Request(url, headers=_BROWSER_HEADERS)
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = resp.read()
+        if len(data) > 100:
+            dest_path.write_bytes(data)
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def get_oembed_cover_url(video_url):
+    """TikTok oEmbed API からサムネイルURLを取得（公開API・認証不要）"""
+    if not video_url:
+        return ""
+    try:
+        oembed_url = "https://www.tiktok.com/oembed?url=" + urllib.parse.quote(video_url, safe=":/")
+        req = urllib.request.Request(oembed_url, headers={
+            "User-Agent": _BROWSER_HEADERS["User-Agent"],
+        })
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        return data.get("thumbnail_url", "")
+    except Exception:
+        return ""
+
+
+def collect_cover_urls(item):
+    """Apifyのアイテムから利用可能なカバーURL候補を全て収集する。
+    TikTok の Apify Actor は複数キーに同等のCDN URLを返すことが多いため、
+    全候補を順次試すことでダウンロード成功率を上げる。"""
+    candidates = []
+
+    def _add(url):
+        if url and isinstance(url, str) and url.startswith("http") and url not in candidates:
+            candidates.append(url)
+
+    vm = item.get("videoMeta") or {}
+    if isinstance(vm, dict):
+        for key in ("coverUrl", "originalCoverUrl", "dynamicCoverUrl", "cover"):
+            _add(vm.get(key))
+
+    cov = item.get("covers") or {}
+    if isinstance(cov, dict):
+        for key in ("default", "origin", "dynamic"):
+            _add(cov.get(key))
+
+    video_obj = item.get("video")
+    if isinstance(video_obj, dict):
+        for key in ("cover", "originCover", "dynamicCover"):
+            _add(video_obj.get(key))
+
+    _add(item.get("coverUrl"))
+    _add(item.get("cover"))
+
+    return candidates
+
+
+def download_cover(video_id, cover_urls, video_url=""):
+    """カバー画像をローカルにダウンロードし、相対パスを返す。
+    cover_urls は str または list を受け付け、順番に試行する。
+    全URL失敗時は oEmbed API で最新URLを取得して再試行。
+    最終的に失敗した場合は空文字を返す。"""
+    if isinstance(cover_urls, str):
+        cover_urls = [cover_urls] if cover_urls else []
+    elif cover_urls is None:
+        cover_urls = []
+
+    if not cover_urls and not video_url:
+        return ""
+
+    thumbs = Path(THUMBS_DIR)
+    thumbs.mkdir(exist_ok=True)
+    local_path = thumbs / f"{video_id}.jpeg"
+
+    # 既にダウンロード済みならスキップ
+    if local_path.exists() and local_path.stat().st_size > 0:
+        return local_path.as_posix()
+
+    # Try 1..N: 候補URLを順次試行（CDN URLは時間制限付きトークンで失効しやすいため複数候補があると有効）
+    for url in cover_urls:
+        if url and _download_image(url, local_path):
+            return local_path.as_posix()
+
+    # Try last: oEmbed API で最新のサムネイルURLを取得してダウンロード
+    if video_url:
+        fresh_url = get_oembed_cover_url(video_url)
+        if fresh_url and _download_image(fresh_url, local_path):
+            return local_path.as_posix()
+
+    return ""
+
+
+def download_covers(videos):
+    """動画リスト内の cover をローカルファイルに差し替え。
+    失敗時は元のCDN URLを保持し、ブラウザ側のフォールバックを生かす。"""
+    ok, fail = 0, 0
+    for v in videos:
+        cdn_url = v.get("cover", "")
+        video_url = v.get("url", "")
+        candidates = v.get("cover_candidates") or ([cdn_url] if cdn_url else [])
+        if not candidates and not video_url:
+            continue
+        local = download_cover(v["id"], candidates, video_url)
+        if local:
+            v["cover"] = local
+            ok += 1
+        else:
+            # 失敗時は CDN URL を維持（ブラウザの onerror フォールバック用）
+            fail += 1
+    print(f"  → サムネイル保存: 成功 {ok}件 / 失敗 {fail}件")
+
+
+def retry_missing_thumbnails(conn, limit=80):
+    """DBに存在するがローカルサムネイルが無い動画について、
+    保存済みCDN URLとoEmbed経由で再ダウンロードを試行する。
+    過去に失敗した動画でも、後日 oEmbed が新URLを返せば回収できる。"""
+    thumbs = Path(THUMBS_DIR)
+    thumbs.mkdir(exist_ok=True)
+
+    rows = conn.execute(
+        "SELECT id, url, cover FROM tiktok_videos ORDER BY published DESC, fetched_at DESC"
+    ).fetchall()
+
+    missing = []
+    for vid, url, cover in rows:
+        local_path = thumbs / f"{vid}.jpeg"
+        if local_path.exists() and local_path.stat().st_size > 0:
+            continue
+        missing.append((vid, url, cover))
+
+    if not missing:
+        print("  → 全ての動画にローカルサムネイルが揃っています")
+        return 0
+
+    target = missing[:limit]
+    print(f"  → ローカルサムネイル欠損 {len(missing)}件 / 今回試行 {len(target)}件")
+
+    ok = 0
+    for vid, url, cover in target:
+        local_path = thumbs / f"{vid}.jpeg"
+        # 1) 保存済みCDN URLで試す（まだ失効していなければ成功）
+        if cover and cover.startswith("http"):
+            if _download_image(cover, local_path):
+                conn.execute(
+                    "UPDATE tiktok_videos SET cover=? WHERE id=?",
+                    (local_path.as_posix(), vid),
+                )
+                ok += 1
+                continue
+        # 2) oEmbed で新URLを取得して再試行
+        if url:
+            fresh = get_oembed_cover_url(url)
+            if fresh and _download_image(fresh, local_path):
+                conn.execute(
+                    "UPDATE tiktok_videos SET cover=? WHERE id=?",
+                    (local_path.as_posix(), vid),
+                )
+                ok += 1
+                continue
+    conn.commit()
+    print(f"  → サムネイル復旧: {ok}/{len(target)}件成功")
+    return ok
+
+
+# =============================================================================
 # データ整形
 # =============================================================================
 
@@ -349,10 +534,9 @@ def extract_video_data(items):
                 elif isinstance(h, str):
                     hashtags.append(h)
 
-            # カバー画像
-            cover = item.get("videoMeta", {}).get("coverUrl", "") or item.get("covers", {}).get("default", "") or ""
-            if not cover:
-                cover = item.get("video", {}).get("cover", "") if isinstance(item.get("video"), dict) else ""
+            # カバー画像（候補URLを全て収集して後で順次試行）
+            cover_candidates = collect_cover_urls(item)
+            cover = cover_candidates[0] if cover_candidates else ""
 
             # URL
             url = item.get("webVideoUrl", "") or f"https://www.tiktok.com/@{username}/video/{video_id}"
@@ -370,6 +554,7 @@ def extract_video_data(items):
                 "published": pub_date.strftime("%Y-%m-%d"),
                 "url": url,
                 "cover": cover,
+                "cover_candidates": cover_candidates,  # 永続化されないが download_covers で使う
                 "fetched_at": now_iso,
             }
 
@@ -505,6 +690,20 @@ def save_history(results):
         for i, r in enumerate(results, 1)
     ]
 
+    # 過去の履歴でCDN URLが残っている場合、ローカル保存を試行して差し替え
+    # ダウンロード失敗時は CDN URL を維持し、ブラウザ側 (onerror data-fallback) の救済に委ねる
+    for date_key, entries in history.items():
+        for entry in entries:
+            cover = entry.get("cover", "")
+            if cover.startswith("http"):
+                video_url = entry.get("url", "")
+                m = re.search(r'/video/(\d+)', video_url)
+                if m:
+                    vid = m.group(1)
+                    local = download_cover(vid, cover, video_url)
+                    if local:
+                        entry["cover"] = local  # 成功時のみローカルパスに差し替え
+
     with open(HISTORY_FILE, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
 
@@ -574,6 +773,9 @@ def main():
             print(f"  → ユニーク動画数: {len(videos)}件（期間内）")
 
             if videos:
+                # サムネイルをローカルに保存（CDN URLは期限切れになるため）
+                print(f"  サムネイルをダウンロード中...")
+                download_covers(videos)
                 upsert_videos(conn, videos)
                 total_after, _ = get_db_stats(conn)
                 new_count = total_after - total
@@ -591,6 +793,14 @@ def main():
     print(f"\n[4/4] DB全データからランキング生成中...")
     all_videos = load_videos_from_db(conn)
     print(f"  → DB内の直近{SEARCH_DAYS}日分: {len(all_videos)}件")
+
+    # ローカルサムネイルが無い動画について再取得を試行
+    # 1) 保存済みCDN URL → 2) oEmbed API（公開・無料、Apify課金は発生しない）
+    print(f"  欠損サムネイルの復旧を試行中...")
+    retry_missing_thumbnails(conn)
+
+    # DBの最新状態を再読み込み（cover欄がローカルパスに更新された可能性があるため）
+    all_videos = load_videos_from_db(conn)
 
     conn.close()
 
