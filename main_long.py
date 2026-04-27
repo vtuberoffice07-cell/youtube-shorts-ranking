@@ -44,30 +44,43 @@ if not API_KEY or API_KEY == "YOUR_API_KEY_HERE":
 youtube = build("youtube", "v3", developerKey=API_KEY) if API_KEY else None
 
 # ---------------------------------------------------------------------------
-# フィルタ条件（要件定義 2026-04-27 決定事項）
+# フィルタ条件（要件定義 2026-04-28 改修: 倍率緩和・期間延長）
 # ---------------------------------------------------------------------------
 MIN_SUBSCRIBERS = 500
 MAX_SUBSCRIBERS = 100_000
-VIEW_MULTIPLIER = 0.5            # 再生数 >= 登録者数 × この値
+VIEW_MULTIPLIER = 0.3            # 再生数 >= 登録者数 × この値（0.5→0.3 に緩和）
 MIN_COMMENTS = 5
 MIN_DURATION_SEC = 4 * 60        # 4分
 MAX_DURATION_SEC = 30 * 60       # 30分
-SEARCH_DAYS = 7                  # 直近7日
+SEARCH_DAYS = 14                 # 直近14日（7→14 に延長）
 
 # ---------------------------------------------------------------------------
 # クォータ節約パラメータ
 # ---------------------------------------------------------------------------
 CRAWL_TOP_N_CHANNELS = 200       # 1回の巡回で参照する上位チャンネル数
-PLAYLIST_ITEMS_PER_CHANNEL = 20  # 各チャンネルから取得する最新動画数
-DISCOVER_QUERIES = ["個人VTuber"]  # 新規発掘用検索クエリ（1個に絞る）
-DISCOVER_DAYS = 1                # 新規発掘検索の対象期間（直近1日）
+PLAYLIST_ITEMS_PER_CHANNEL = 30  # 各チャンネルから取得する最新動画数（20→30 で14日分カバー）
+DISCOVER_DAYS = 7                # 新規発掘検索の対象期間（1→7 日）
 DISCOVER_MAX_RESULTS = 50
+
+# 曜日別検索クエリローテーション（月=0 ... 日=6、各日2クエリ = 200 quota/run）
+DISCOVER_QUERY_ROTATION = {
+    0: ["個人VTuber", "個人勢 雑談"],          # 月
+    1: ["新人VTuber", "VTuber ゲーム実況"],     # 火
+    2: ["個人勢VTuber", "VTuber 歌ってみた"],   # 水
+    3: ["個人VTuber 配信", "VTuber 解説"],      # 木
+    4: ["個人勢 ASMR", "VTuber 雑談"],          # 金
+    5: ["VTuber 新人", "個人VTuber 配信"],      # 土
+    6: ["個人VTuber", "Vsinger"],               # 日
+}
 
 # ---------------------------------------------------------------------------
 # NGキーワード / 事務所ブラックリスト（main.py 継承）
+# 2026-04-28 改修1+: "まとめ" は本人動画のタイトルにも一般語として頻出するため除外
+# （例: 「嘘だらけのまとめサイトにまとめられる新人Vtuber」など）。
+# 切り抜き系は "切り抜き" "反応" "速報" "手書き" でほぼカバーできる。
 # ---------------------------------------------------------------------------
 NG_KEYWORDS = [
-    "切り抜き", "まとめ", "速報", "手書き", "反応",
+    "切り抜き", "速報", "手書き", "反応",
     "ホロライブ", "hololive", "にじさんじ", "nijisanji",
     "ぶいすぽ", "ネオポルテ",
 ]
@@ -336,15 +349,20 @@ class QuotaTracker:
 
 
 def discover_via_search(quota):
-    """新規発掘: 1クエリ × 直近DISCOVER_DAYS日 × videoDuration=medium で検索"""
+    """新規発掘: 曜日別ローテーションのクエリ × 直近DISCOVER_DAYS日 × videoDuration=medium で検索。
+    曜日ローテによって週14クエリ分のカバー範囲を獲得しつつ、1日の search.list 呼び出しは
+    DISCOVER_QUERY_ROTATION[今日の曜日] のサイズだけに抑える（=200 quota/run）。"""
     if not youtube:
-        return [], []
+        return []
     now = datetime.now(timezone.utc)
+    weekday = datetime.now().weekday()  # JST基準ではないが運用上問題なし（曜日のばらけが目的）
+    queries = DISCOVER_QUERY_ROTATION.get(weekday, ["個人VTuber"])
     published_after = (now - timedelta(days=DISCOVER_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
     video_ids = []
     seen = set()
 
-    for q in DISCOVER_QUERIES:
+    print(f"  → 本日({weekday}曜)のクエリ: {queries}")
+    for q in queries:
         try:
             req = youtube.search().list(
                 q=q,
@@ -354,6 +372,8 @@ def discover_via_search(quota):
                 order="viewCount",
                 part="id",
                 maxResults=DISCOVER_MAX_RESULTS,
+                regionCode="JP",
+                relevanceLanguage="ja",
             )
             resp = req.execute()
             quota.search_calls += 1
@@ -363,6 +383,10 @@ def discover_via_search(quota):
                     seen.add(vid)
                     video_ids.append(vid)
         except Exception as e:
+            err = str(e)
+            if "quotaExceeded" in err:
+                print(f"  ⚠ search.list でクォータ上限。{quota.search_calls}クエリで打ち切り")
+                break
             print(f"  ⚠ 新規発掘検索エラー ({q}): {e}")
 
     return video_ids
@@ -517,13 +541,16 @@ def fetch_channel_details(channel_ids, quota):
 # =============================================================================
 
 def is_blacklisted(video, channel_name):
+    """NG判定: タイトル + チャンネル名のみを対象にする（description/tags は除外）。
+
+    description/tags にはコラボ相手や検索対策として大手事務所名(ホロライブ等)が
+    雑に入っていることが多く、個人VTuber本人の動画でも誤検知してしまうため
+    2026-04-28 改修1 で対象から外した。
+    """
     if "切り抜き" in (channel_name or ""):
         return True
     title = (video.get("snippet") or {}).get("title", "")
-    description = (video.get("snippet") or {}).get("description", "")
-    tags = (video.get("snippet") or {}).get("tags", []) or []
-    tags_text = " ".join(tags)
-    for text in [title, channel_name or "", description, tags_text]:
+    for text in [title, channel_name or ""]:
         if contains_ng_keyword(text):
             return True
     return False
@@ -724,7 +751,8 @@ def main():
           f"再生≧登録者×{VIEW_MULTIPLIER} / コメント≧{MIN_COMMENTS} / "
           f"{MIN_DURATION_SEC//60}〜{MAX_DURATION_SEC//60}分 / 直近{SEARCH_DAYS}日")
     print(f"巡回: 上位 {CRAWL_TOP_N_CHANNELS} チャンネル × 各最新 {PLAYLIST_ITEMS_PER_CHANNEL} 件")
-    print(f"新規発掘: {DISCOVER_QUERIES} × 直近{DISCOVER_DAYS}日")
+    weekday = datetime.now().weekday()
+    print(f"新規発掘: 曜日ローテ(本日={weekday}) → {DISCOVER_QUERY_ROTATION.get(weekday)} × 直近{DISCOVER_DAYS}日")
 
     if DRY_RUN:
         print("\n[DRY RUN] API は呼び出さず、DB の既存データでランキング表示します。")
