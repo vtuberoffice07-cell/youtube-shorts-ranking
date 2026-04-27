@@ -62,6 +62,21 @@ jobs:
             echo "⚠️ ranking_all_history.json に変更がありません"
           fi
 
+      - name: Run YouTube ranking (横動画 4-30分 medium)
+        id: youtube_long
+        env:
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+        run: |
+          echo "::group::YouTube横動画ランキング"
+          python main_long.py
+          echo "::endgroup::"
+          if git diff --name-only | grep -q long_history.json; then
+            echo "✅ long_history.json が更新されました"
+          else
+            echo "⚠️ long_history.json に変更がありません"
+          fi
+        continue-on-error: true
+
       # ===== TikTok / Twitter（失敗しても続行） =====
       - name: Run TikTok ranking
         env:
@@ -102,7 +117,7 @@ jobs:
           git diff --name-only
           echo ""
           echo "--- 各ファイルの最終更新日時 ---"
-          for f in ranking_history.json ranking_all_history.json tiktok_history.json tweet_history.json hints_report.json; do
+          for f in ranking_history.json ranking_all_history.json long_history.json tiktok_history.json tweet_history.json hints_report.json; do
             if [ -f "$f" ]; then
               SIZE=$(wc -c < "$f")
               DATES=$(python3 -c "import json; d=json.load(open('$f')); print(sorted(d.keys())[-3:])" 2>/dev/null || echo "parse error")
@@ -120,7 +135,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # 全データファイルをステージング（存在するものだけ）
-          for f in ranking_history.json ranking_output.csv ranking_all_history.json ranking_all_output.csv tiktok_history.json tiktok_output.csv tiktok.db tweet_history.json tweet_output.csv tweets.db hints_report.json; do
+          for f in ranking_history.json ranking_output.csv ranking_all_history.json ranking_all_output.csv long_history.json long_output.csv youtube_long.db tiktok_history.json tiktok_output.csv tiktok.db tweet_history.json tweet_output.csv tweets.db hints_report.json; do
             if [ -f "$f" ]; then
               git add "$f"
             fi

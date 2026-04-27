@@ -985,6 +985,7 @@
 <div class="tabs">
   <button class="tab-btn active" data-tab="daily">YouTube Shorts</button>
   <button class="tab-btn" data-tab="allvtuber">全体ランキング</button>
+  <button class="tab-btn" data-tab="long">横動画</button>
   <button class="tab-btn" data-tab="tiktok">TikTok</button>
   <button class="tab-btn" data-tab="twitter">Twitter</button>
   <button class="tab-btn" data-tab="trends">チャンネル推移</button>
@@ -1094,6 +1095,59 @@
         </tr>
       </thead>
       <tbody id="allTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 横動画 (4-30分 medium) view -->
+<div id="longView" style="display:none;">
+  <div class="date-nav">
+    <button class="nav-btn" id="longPrevDay" title="前日">&#9664;</button>
+    <input type="date" id="longDatePicker">
+    <button class="nav-btn" id="longNextDay" title="翌日">&#9654;</button>
+    <span class="date-info" id="longDateInfo"></span>
+  </div>
+  <div class="controls">
+    <label>並び替え:</label>
+    <select id="longSortSelect">
+      <option value="growth_rate-desc">伸び率（高い順）</option>
+      <option value="views-desc">再生数(多い順)</option>
+      <option value="comments-desc">コメント数（多い順）</option>
+      <option value="subscribers-asc">登録者数（少ない順）</option>
+      <option value="published-desc">投稿日（新しい順）</option>
+    </select>
+    <label>検索:</label>
+    <input type="text" id="longSearchInput" placeholder="タイトル・チャンネル名...">
+    <div class="view-toggle">
+      <button class="view-toggle-btn" id="longViewTable" title="テーブル表示">&#9776;</button>
+      <button class="view-toggle-btn active" id="longViewGrid" title="グリッド表示">&#9638;</button>
+    </div>
+  </div>
+  <p style="text-align:center;color:#f9844a;font-size:13px;margin-bottom:8px;">※ 4〜30分の横動画 / チャンネル巡回方式（API節約）/ 個人VTuberのみ</p>
+  <div class="stats" id="longStatsArea"></div>
+  <div id="longGridContainer" class="grid-wrap"></div>
+  <div class="table-wrap" id="longTableContainer" style="display:none;">
+    <div id="longEmptyState" class="empty-state">
+      <p>long_history.json を読み込み中...</p>
+    </div>
+    <table id="longRankingTable" style="display:none;">
+      <thead>
+        <tr>
+          <th>順位</th>
+          <th>サムネイル</th>
+          <th>タイトル</th>
+          <th>チャンネル名</th>
+          <th>登録者数</th>
+          <th>再生数</th>
+          <th>伸び率グラフ</th>
+          <th>伸び率</th>
+          <th>コメント数</th>
+          <th>時間</th>
+          <th>投稿日</th>
+          <th>リンク</th>
+        </tr>
+      </thead>
+      <tbody id="longTableBody"></tbody>
     </table>
   </div>
 </div>
@@ -1223,6 +1277,7 @@ function tryLogin() {
     sessionStorage.setItem('vtr_auth', '1');
     loadData();
     loadAllVData();
+    loadLongData();
     loadTikTokData();
     loadTwitterData();
   } else {
@@ -1274,12 +1329,14 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     const tab = btn.dataset.tab;
     document.getElementById('dailyView').style.display = tab === 'daily' ? '' : 'none';
     document.getElementById('allVtuberView').style.display = tab === 'allvtuber' ? '' : 'none';
+    document.getElementById('longView').style.display = tab === 'long' ? '' : 'none';
     document.getElementById('tiktokView').style.display = tab === 'tiktok' ? '' : 'none';
     document.getElementById('twitterView').style.display = tab === 'twitter' ? '' : 'none';
     document.getElementById('trendsView').style.display = tab === 'trends' ? '' : 'none';
     document.getElementById('hintsView').style.display = tab === 'hints' ? '' : 'none';
     document.getElementById('tweetHintsView').style.display = tab === 'tweethints' ? '' : 'none';
     if (tab === 'allvtuber') allRenderAll();
+    if (tab === 'long') longRenderAll();
     if (tab === 'tiktok') ttRenderAll();
     if (tab === 'twitter') twRenderAll();
     if (tab === 'trends') renderTrends();
@@ -1894,6 +1951,207 @@ function allRenderGrid(data) {
           </div>
         </div>
         ${d.analysis ? formatGridAnalysis(d.analysis) : ''}
+      </div>
+    </a>`;
+  }).join('');
+}
+
+// ================================================================
+// 横動画 (4-30分 medium) Logic
+// ================================================================
+let longHistoryData = {};
+let longDates = [];
+let longCurrentDate = '';
+let longAllData = [];
+let longCurrentSort = { key: 'growth_rate', desc: true };
+let longCurrentView = 'grid';
+
+document.getElementById('longDatePicker').addEventListener('change', (e) => { longLoadDate(e.target.value); });
+document.getElementById('longPrevDay').addEventListener('click', () => {
+  const idx = longDates.indexOf(longCurrentDate);
+  if (idx > 0) longLoadDate(longDates[idx - 1]);
+});
+document.getElementById('longNextDay').addEventListener('click', () => {
+  const idx = longDates.indexOf(longCurrentDate);
+  if (idx < longDates.length - 1) longLoadDate(longDates[idx + 1]);
+});
+
+function longLoadDate(dateStr) {
+  if (!longHistoryData[dateStr]) return;
+  longCurrentDate = dateStr;
+  document.getElementById('longDatePicker').value = dateStr;
+  longAllData = longHistoryData[dateStr];
+  document.getElementById('longDateInfo').textContent = longAllData.length + '件 / ' + longDates.length + '日分';
+  longRenderAll();
+}
+
+document.getElementById('longSortSelect').addEventListener('change', (e) => {
+  const [key, dir] = e.target.value.split('-');
+  longCurrentSort = { key, desc: dir === 'desc' };
+  longRenderAll();
+});
+
+document.getElementById('longViewTable').addEventListener('click', () => {
+  longCurrentView = 'table';
+  document.getElementById('longViewTable').classList.add('active');
+  document.getElementById('longViewGrid').classList.remove('active');
+  longRenderAll();
+});
+document.getElementById('longViewGrid').addEventListener('click', () => {
+  longCurrentView = 'grid';
+  document.getElementById('longViewGrid').classList.add('active');
+  document.getElementById('longViewTable').classList.remove('active');
+  longRenderAll();
+});
+document.getElementById('longSearchInput').addEventListener('input', () => longRenderAll());
+
+function loadLongData() {
+  fetch('long_history.json')
+    .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+    .then(text => {
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      longHistoryData = JSON.parse(text);
+      longDates = Object.keys(longHistoryData).sort();
+      if (longDates.length > 0) {
+        const picker = document.getElementById('longDatePicker');
+        picker.min = longDates[0];
+        picker.max = longDates[longDates.length - 1];
+        longLoadDate(longDates[longDates.length - 1]);
+      }
+    })
+    .catch(() => {});
+}
+if (sessionStorage.getItem('vtr_auth') === '1') loadLongData();
+
+function longExtractVideoId(url) {
+  if (!url) return '';
+  // /watch?v=XXXX or /shorts/XXXX
+  const m = url.match(/(?:[?&]v=|\/shorts\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : '';
+}
+
+function longFormatDuration(sec) {
+  sec = sec || 0;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function longRenderAll() {
+  const query = document.getElementById('longSearchInput').value.toLowerCase();
+  let data = longAllData.filter(d =>
+    !query || (d.title||'').toLowerCase().includes(query) || (d.channel||'').toLowerCase().includes(query)
+  );
+  data.sort((a, b) => {
+    let va = a[longCurrentSort.key], vb = b[longCurrentSort.key];
+    if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+    if (va < vb) return longCurrentSort.desc ? 1 : -1;
+    if (va > vb) return longCurrentSort.desc ? -1 : 1;
+    return 0;
+  });
+
+  const statsArea = document.getElementById('longStatsArea');
+  if (data.length > 0) {
+    const totalViews = data.reduce((s, d) => s + (d.views||0), 0);
+    const avgGrowth = (data.reduce((s, d) => s + (d.growth_rate||0), 0) / data.length).toFixed(1);
+    const maxGrowth = Math.max(...data.map(d => d.growth_rate||0));
+    statsArea.innerHTML = `
+      <div class="stat-card"><div class="value">${data.length}</div><div class="label">ランクイン動画数</div></div>
+      <div class="stat-card"><div class="value">${totalViews.toLocaleString()}</div><div class="label">合計再生数</div></div>
+      <div class="stat-card"><div class="value">${avgGrowth}x</div><div class="label">平均伸び率</div></div>
+      <div class="stat-card"><div class="value">${maxGrowth}x</div><div class="label">最高伸び率</div></div>
+    `;
+  } else { statsArea.innerHTML = ''; }
+
+  const tableContainer = document.getElementById('longTableContainer');
+  const gridContainer = document.getElementById('longGridContainer');
+  if (longCurrentView === 'grid') {
+    tableContainer.style.display = 'none';
+    gridContainer.style.display = '';
+    longRenderGrid(data);
+  } else {
+    tableContainer.style.display = '';
+    gridContainer.style.display = 'none';
+    longRenderTable(data);
+  }
+}
+
+function longRenderTable(data) {
+  const table = document.getElementById('longRankingTable');
+  const empty = document.getElementById('longEmptyState');
+  const tbody = document.getElementById('longTableBody');
+  if (data.length === 0 && longAllData.length === 0 && longDates.length === 0) {
+    table.style.display = 'none';
+    empty.style.display = 'block';
+    empty.innerHTML = '<p>long_history.json を読み込み中...</p><p style="font-size:14px;color:#555;">main_long.py を実行するとデータが生成されます</p>';
+    return;
+  }
+  table.style.display = 'table'; empty.style.display = 'none';
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#666;padding:40px;">この日のデータには検索結果がありません</td></tr>';
+    return;
+  }
+  const maxGrowth = Math.max(...data.map(d => d.growth_rate||0), 1);
+  tbody.innerHTML = data.map((d, i) => {
+    const rank = i + 1;
+    const rankClass = rank <= 3 ? ` rank-${rank}` : '';
+    const growthClass = (d.growth_rate||0) >= 5 ? 'growth-high' : (d.growth_rate||0) >= 2 ? 'growth-mid' : 'growth-low';
+    const barWidth = ((d.growth_rate||0) / maxGrowth * 100).toFixed(1);
+    const linkHtml = d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" class="link-btn" onclick="event.stopPropagation()">再生</a>` : '';
+    const videoId = longExtractVideoId(d.url||'');
+    const thumbHtml = videoId
+      ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><img src="https://i.ytimg.com/vi/${videoId}/mqdefault.jpg" alt="" loading="lazy" onerror="this.src='https://i.ytimg.com/vi/${videoId}/hqdefault.jpg'"></a>`
+      : '';
+    return `<tr>
+      <td class="rank${rankClass}">${rank}</td>
+      <td class="thumb-cell">${thumbHtml}</td>
+      <td class="title-cell">${esc(d.title)}</td>
+      <td class="channel-cell" title="${esc(d.channel)}">${esc(d.channel)}</td>
+      <td class="num">${(d.subscribers||0).toLocaleString()}</td>
+      <td class="num">${(d.views||0).toLocaleString()}</td>
+      <td class="bar-cell"><div class="bar-bg"><div class="bar-fill" style="width:${barWidth}%"></div></div></td>
+      <td class="growth ${growthClass}">${d.growth_rate||0}x</td>
+      <td class="num">${(d.comments||0).toLocaleString()}</td>
+      <td class="num">${longFormatDuration(d.duration||0)}</td>
+      <td>${d.published || ''}</td>
+      <td>${linkHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+function longRenderGrid(data) {
+  const container = document.getElementById('longGridContainer');
+  if (data.length === 0 && longAllData.length === 0 && longDates.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>long_history.json を読み込み中...</p><p style="font-size:14px;color:#555;">main_long.py を実行するとデータが生成されます</p></div>';
+    return;
+  }
+  if (data.length === 0) {
+    container.innerHTML = '<div class="empty-state"><p>この日のデータはありません</p></div>';
+    return;
+  }
+  container.innerHTML = data.map((d, i) => {
+    const rank = i + 1;
+    const rankColor = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+    const videoId = longExtractVideoId(d.url||'');
+    const thumbSrc = videoId ? 'https://i.ytimg.com/vi/' + videoId + '/mqdefault.jpg' : '';
+    const thumbErr = videoId ? 'onerror="this.src=\'https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg\'"' : '';
+    const link = d.url ? esc(d.url) : '#';
+    const durLabel = longFormatDuration(d.duration||0);
+    return `<a href="${link}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+      <div class="grid-card">
+        <div class="grid-card-rank ${rankColor}">${rank}</div>
+        <div class="grid-card-growth">${d.growth_rate||0}x</div>
+        ${thumbSrc ? `<img class="grid-card-thumb" src="${thumbSrc}" ${thumbErr} alt="" loading="lazy">` : '<div class="grid-card-thumb"></div>'}
+        <div style="position:absolute;bottom:78px;right:8px;background:rgba(0,0,0,0.78);color:#fff;font-size:11px;font-weight:bold;padding:2px 6px;border-radius:4px;">${durLabel}</div>
+        <div class="grid-card-body">
+          <div class="grid-card-title">${esc(d.title)}</div>
+          <div class="grid-card-channel">${esc(d.channel)}</div>
+          <div class="grid-card-stats">
+            <div class="stat-item"><span class="val">${formatNum(d.views||0)}</span><span class="stat-label">再生数</span></div>
+            <div class="stat-item"><span class="val">${formatNum(d.subscribers||0)}</span><span class="stat-label">登録者</span></div>
+            <div class="stat-item"><span class="val">${d.comments||0}</span><span class="stat-label">コメント</span></div>
+          </div>
+        </div>
       </div>
     </a>`;
   }).join('');

@@ -33,7 +33,7 @@ VIEW_MULTIPLIER = 3  # 再生数 >= 登録者数 × この値
 MIN_COMMENTS = 10
 MIN_DURATION_SEC = 5
 MAX_DURATION_SEC = 60
-SEARCH_DAYS = 3  # 検索対象日数
+SEARCH_DAYS = 2  # 検索対象日数（横動画追加に伴うクォータ節約のため 3→2 に短縮）
 DAYS_PER_CHUNK = 1  # 何日分を1回のAPI呼び出しでまとめるか（クォータ節約）
 MAX_RESULTS_PER_QUERY = 50  # 各クエリ×期間あたりの最大取得数
 
@@ -250,6 +250,7 @@ def filter_and_rank(videos, channels):
             {
                 "title": video["snippet"]["title"],
                 "channel": channel_info["title"],
+                "channel_id": channel_id,  # main_long.py のチャンネル巡回用に保存
                 "subscribers": sub_count,
                 "views": view_count,
                 "growth_rate": round(growth_rate, 1),
@@ -491,6 +492,7 @@ def save_history(results):
             "rank": i,
             "title": r["title"],
             "channel": r["channel"],
+            "channel_id": r.get("channel_id", ""),
             "subscribers": r["subscribers"],
             "views": r["views"],
             "growth_rate": r["growth_rate"],
