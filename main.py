@@ -16,6 +16,7 @@ from vtuber_common import (
     contains_ng_keyword as _common_contains_ng_keyword,
     has_japanese_kana,
     is_japanese_vtuber,
+    write_latest_snapshot,
 )
 
 # Windows cp932 で出力エラーを防ぐ
@@ -453,6 +454,8 @@ def fetch_and_analyze_all(results):
 
 
 HISTORY_FILE = "ranking_history.json"
+LATEST_FILE = "ranking_latest.json"  # viewer.html の初期表示用に直近30日分の軽量版を生成
+LATEST_DAYS = 30
 
 
 def save_history(results):
@@ -495,6 +498,10 @@ def save_history(results):
 
     total_days = len(history)
     print(f"履歴保存: {HISTORY_FILE} ({today}, 累計{total_days}日分)")
+
+    # 軽量版 (latest) を生成。viewer.html はこれを優先 fetch して初期表示を高速化する。
+    latest_count = write_latest_snapshot(history, LATEST_FILE, days=LATEST_DAYS)
+    print(f"  → {LATEST_FILE} に直近{LATEST_DAYS}日分を出力 ({latest_count}日分)")
 
 
 def main():

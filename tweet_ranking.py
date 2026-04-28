@@ -20,6 +20,8 @@ from datetime import datetime, timedelta, timezone
 from apify_client import ApifyClient
 from dotenv import load_dotenv
 
+from vtuber_common import write_latest_snapshot
+
 # Windows cp932 で出力エラーを防ぐ
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
@@ -62,6 +64,8 @@ SAVE_RAW_DEBUG = "--debug" in sys.argv
 
 DB_FILE = "tweets.db"
 HISTORY_FILE = "tweet_history.json"
+LATEST_FILE = "tweet_latest.json"  # viewer.html の初期表示用（直近30日分）
+LATEST_DAYS = 30
 CSV_FILE = "tweet_output.csv"
 
 
@@ -475,6 +479,10 @@ def save_history(tweets):
 
     total_days = len(history)
     print(f"履歴保存: {HISTORY_FILE} ({today}, 累計{total_days}日分)")
+
+    # 軽量版 (latest) を生成。viewer.html の初期表示高速化用
+    latest_count = write_latest_snapshot(history, LATEST_FILE, days=LATEST_DAYS)
+    print(f"  → {LATEST_FILE} に直近{LATEST_DAYS}日分を出力 ({latest_count}日分)")
 
 
 def display_results(tweets):

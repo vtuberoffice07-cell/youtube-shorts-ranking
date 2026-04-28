@@ -14,7 +14,9 @@ Notion 要件定義: https://www.notion.so/34d4806b96df811c88aff310ad2161c7
 """
 from __future__ import annotations
 
+import json
 import re
+from datetime import datetime, timedelta
 from typing import Iterable, Mapping, Optional
 
 
@@ -77,3 +79,39 @@ def is_japanese_vtuber(video: Mapping, channel_name: Optional[str]) -> bool:
         or has_japanese_kana(channel_name or "")
         or has_japanese_kana(description)
     )
+
+
+def write_latest_snapshot(history: Mapping[str, object], out_path: str, days: int = 30) -> int:
+    """history dict (キー = "YYYY-MM-DD" の日付) から直近 N 日分だけ抽出した
+    軽量版 JSON を out_path に書き出す。
+
+    フロントエンド (viewer.html) の初期表示で大きな history.json 全量を読まず、
+    まず軽量な latest を fetch して即座に直近データを表示するための補助。
+    過去日付の閲覧時には呼び出し側 (viewer.html) で full history を遅延読込する。
+
+    Returns: 抽出された日付の件数。
+
+    Notes
+    -----
+    - history のキーが日付フォーマット "YYYY-MM-DD" であることを前提。
+    - 日付パース失敗 / フォーマット不一致のキーは無視する。
+    - 出力ファイルは indent=2 で UTF-8 書き出し。
+    """
+    if not isinstance(history, Mapping):
+        raise TypeError(f"history must be Mapping, got {type(history).__name__}")
+
+    today = datetime.utcnow().date()
+    cutoff = today - timedelta(days=days)
+    latest = {}
+    for date_key, value in history.items():
+        try:
+            d = datetime.strptime(date_key, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue
+        if d >= cutoff:
+            latest[date_key] = value
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(latest, f, ensure_ascii=False, indent=2)
+
+    return len(latest)
