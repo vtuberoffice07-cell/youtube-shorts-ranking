@@ -1258,6 +1258,10 @@
 
 <script>
 // --- Password auth ---
+// 2026-04-28: YouTube Data API クォータ増加申請の審査のため一時的に無効化。
+// 閲覧制限を再有効化するときは AUTH_REQUIRED を true に戻すだけで OK。
+const AUTH_REQUIRED = false;
+
 const PASS_HASH = '8a9b2f1e6c3d7a4b'; // obfuscated check
 function checkPass(input) {
   // Simple hash to avoid plaintext in source
@@ -1291,11 +1295,19 @@ document.getElementById('authPassword').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') tryLogin();
 });
 
-// Check if already authed in this session
-if (sessionStorage.getItem('vtr_auth') === '1') {
+// 認証が無効化されている、または既にこのセッションで認証済みなら即解錠
+if (!AUTH_REQUIRED || sessionStorage.getItem('vtr_auth') === '1') {
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('mainContent').style.display = '';
   document.body.classList.add('authed');
+  if (!AUTH_REQUIRED) {
+    // 認証無効モード: 自動でデータをロード
+    loadData();
+    loadAllVData();
+    loadLongData();
+    loadTikTokData();
+    loadTwitterData();
+  }
 }
 </script>
 
