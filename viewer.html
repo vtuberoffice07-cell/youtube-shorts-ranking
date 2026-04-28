@@ -1263,19 +1263,30 @@
 // 閲覧制限を再有効化するときは AUTH_REQUIRED を true に戻すだけで OK。
 const AUTH_REQUIRED = false;
 
-const PASS_HASH = '8a9b2f1e6c3d7a4b'; // obfuscated check
-function checkPass(input) {
-  // Simple hash to avoid plaintext in source
-  let h = 0;
-  for (let i = 0; i < input.length; i++) {
-    h = ((h << 5) - h + input.charCodeAt(i)) | 0;
-  }
-  return h === -648609971;
+// 注意: フロントエンド認証は本質的に obfuscation であり、JavaScript を読まれれば
+// ハッシュもソルトも見えてしまうため「ソース閲覧で即逆算される」のを防ぐ程度の
+// 強度しかない。本格的に限定公開したい場合は GitHub リポジトリ Private + Pages Private が筋。
+//
+// ハッシュ計算: SHA-256(PASS_SALT + password)
+// 新しいパスワードのハッシュを生成するには `compute_password_hash.html` を使う。
+const PASS_SALT = 'vtbuzz-2026-04';
+const PASS_HASH_HEX = 'be4c1c3aab3c3eb77c14ef60ab57bc4d6d77b8d20fbe35eba6dc3a6f88e2b3a1'; // PLACEHOLDER: 実運用時は compute_password_hash.html で再生成
+
+async function checkPass(input) {
+  // Web Crypto API で SHA-256 を計算する（旧方式の単純多項式ハッシュより遥かに堅牢）
+  if (!input) return false;
+  const enc = new TextEncoder();
+  const bytes = enc.encode(PASS_SALT + input);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  const hex = Array.from(new Uint8Array(digest))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+  return hex === PASS_HASH_HEX;
 }
 
-function tryLogin() {
+async function tryLogin() {
   const pw = document.getElementById('authPassword').value;
-  if (checkPass(pw)) {
+  const ok = await checkPass(pw);
+  if (ok) {
     document.getElementById('authScreen').classList.add('hidden');
     document.getElementById('mainContent').style.display = '';
     document.body.classList.add('authed');
@@ -1386,16 +1397,43 @@ document.getElementById('sortSelect').addEventListener('change', (e) => {
 });
 document.getElementById('searchInput').addEventListener('input', () => renderAll());
 
-// --- Auto-load ranking_history.json ---
+// --- Auto-load ranking history ---
+// 高速化: まず軽量版 latest (直近30日) を fetch して即座に初期表示し、
+// その後バックグラウンドで全期間 history を遅延読込する。
 function loadData() {
-  fetch('ranking_history.json')
-    .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+  // Step 1: latest を優先 fetch（数十KB〜数百KB、即時表示）
+  fetch('ranking_latest.json')
+    .then(r => { if (!r.ok) throw new Error('no latest'); return r.text(); })
     .then(text => {
       if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
       historyData = JSON.parse(text);
       initFromHistory();
       document.getElementById('updatedAt').textContent =
-        `自動読み込み: ranking_history.json (${new Date().toLocaleString('ja-JP')})`;
+        `自動読み込み: ranking_latest.json (${new Date().toLocaleString('ja-JP')})`;
+      // Step 2: 全期間 history をバックグラウンドで遅延読込
+      setTimeout(loadFullHistory, 200);
+    })
+    .catch(() => {
+      // latest が無ければ従来どおり全期間を直接 fetch（互換性フォールバック）
+      loadFullHistory();
+    });
+}
+
+function loadFullHistory() {
+  fetch('ranking_history.json')
+    .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+    .then(text => {
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      historyData = JSON.parse(text);
+      // 日付ピッカーの範囲を全期間に拡張（現在の表示中データは触らない）
+      dates = Object.keys(historyData).sort();
+      if (dates.length > 0) {
+        const picker = document.getElementById('datePicker');
+        picker.min = dates[0];
+        picker.max = dates[dates.length - 1];
+        document.getElementById('updatedAt').textContent =
+          `全期間読み込み完了: ranking_history.json (${dates.length}日分)`;
+      }
     })
     .catch(() => {});
 }
@@ -1825,8 +1863,28 @@ document.getElementById('allViewGrid').addEventListener('click', () => {
 });
 document.getElementById('allSearchInput').addEventListener('input', () => allRenderAll());
 
-// Auto-load ranking_all_history.json
+// Auto-load ranking_all (latest 優先 + 遅延 full 読込)
 function loadAllVData() {
+  fetch('ranking_all_latest.json')
+    .then(r => { if (!r.ok) throw new Error('no latest'); return r.text(); })
+    .then(text => {
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      allVHistoryData = JSON.parse(text);
+      allVDates = Object.keys(allVHistoryData).sort();
+      if (allVDates.length > 0) {
+        const picker = document.getElementById('allDatePicker');
+        picker.min = allVDates[0];
+        picker.max = allVDates[allVDates.length - 1];
+        allVLoadDate(allVDates[allVDates.length - 1]);
+      }
+      setTimeout(loadAllVFullHistory, 200);
+    })
+    .catch(() => {
+      loadAllVFullHistory();
+    });
+}
+
+function loadAllVFullHistory() {
   fetch('ranking_all_history.json')
     .then(r => { if (!r.ok) throw new Error(); return r.text(); })
     .then(text => {
@@ -1837,7 +1895,6 @@ function loadAllVData() {
         const picker = document.getElementById('allDatePicker');
         picker.min = allVDates[0];
         picker.max = allVDates[allVDates.length - 1];
-        allVLoadDate(allVDates[allVDates.length - 1]);
       }
     })
     .catch(() => {});
@@ -2459,8 +2516,28 @@ document.getElementById('twSortSelect').addEventListener('change', (e) => {
 });
 document.getElementById('twSearchInput').addEventListener('input', () => twRenderAll());
 
-// Auto-load tweet_history.json
+// Auto-load tweet (latest 優先 + 遅延 full 読込)
 function loadTwitterData() {
+  fetch('tweet_latest.json')
+    .then(r => { if (!r.ok) throw new Error('no latest'); return r.text(); })
+    .then(text => {
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      twHistoryData = JSON.parse(text);
+      twDates = Object.keys(twHistoryData).sort();
+      if (twDates.length > 0) {
+        const picker = document.getElementById('twDatePicker');
+        picker.min = twDates[0];
+        picker.max = twDates[twDates.length - 1];
+        twLoadDate(twDates[twDates.length - 1]);
+      }
+      setTimeout(loadTwitterFullHistory, 200);
+    })
+    .catch(() => {
+      loadTwitterFullHistory();
+    });
+}
+
+function loadTwitterFullHistory() {
   fetch('tweet_history.json')
     .then(r => { if (!r.ok) throw new Error(); return r.text(); })
     .then(text => {
@@ -2471,7 +2548,6 @@ function loadTwitterData() {
         const picker = document.getElementById('twDatePicker');
         picker.min = twDates[0];
         picker.max = twDates[twDates.length - 1];
-        twLoadDate(twDates[twDates.length - 1]);
       }
     })
     .catch(() => {});
