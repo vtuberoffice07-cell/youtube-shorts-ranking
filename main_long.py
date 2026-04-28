@@ -34,6 +34,7 @@ from vtuber_common import (
     contains_ng_keyword as _common_contains_ng_keyword,
     has_japanese_kana,
     is_japanese_vtuber,
+    load_analysis_contexts,
 )
 from buzz_analysis import analyze_video_holistic, format_holistic_analysis
 
@@ -735,6 +736,7 @@ def fetch_and_analyze_all_long(results, quota, limit_top_n=20):
         return
     print(f"\n[+] コメント分析中（上位 {min(limit_top_n, len(results))} 件）...")
     analyzed_count = 0
+    contexts = load_analysis_contexts()
     for i, r in enumerate(results):
         if i >= limit_top_n:
             r["analysis"] = ""
@@ -758,11 +760,12 @@ def fetch_and_analyze_all_long(results, quota, limit_top_n=20):
             "growth_rate": r.get("growth_rate", 0),
         }
         comments = fetch_comments_long(video_id, quota)
-        # 横動画は youtube_long.db を持っているので DB クロスリファレンスを有効化
         factors = analyze_video_holistic(
             video_info, comments,
             growth_thresholds=(5, 2, 1),
             long_db_path=DB_FILE,
+            tweet_history=contexts["tweet_history"],
+            tiktok_history=contexts["tiktok_history"],
         )
         r["factors"] = factors
         r["analysis"] = format_holistic_analysis(factors)

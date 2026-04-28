@@ -64,6 +64,16 @@ TITLE_EMOTION_KEYWORDS = [
     "炎上", "禁断", "やばい", "ヤバい", "ガチギレ", "ガチで", "本音",
 ]
 
+# コメント内の外部プラットフォーム言及キーワード
+EXTERNAL_REFERRER_KEYWORDS = {
+    "Twitter": ["twitter", "ツイッター", "ツイート", "ツイ", "X から", "Xから", "Xで", "X上",
+                "RT", "リツイート", "拡散", "回ってき", "TL"],
+    "TikTok": ["tiktok", "ティックトック", "tt", "TikTok から", "tiktokから"],
+    "ニュース・まとめ": ["ニュース", "Yahoo", "ねとらぼ", "5ch", "ふたば", "まとめサイト", "記事"],
+    "おすすめ": ["おすすめ", "急上昇", "トレンド", "突然出てき", "勝手に出てき"],
+    "他者言及": ["紹介され", "○○さんから", "リプ", "コラボ", "から飛んで来"],
+}
+
 # ゲーム名抽出から除外するキーワード（雑談/歌枠/コラボ/イラスト等）
 NON_GAME_KEYWORDS = [
     # 配信/動画タイプ
@@ -482,6 +492,176 @@ def detect_viral_pattern(video_info):
 
 
 # =============================================================================
+# Phase 3: 外部プラットフォーム連携（Twitter / TikTok / コメント外部言及）
+# =============================================================================
+
+def _extract_video_id(url):
+    """動画 URL から videoId (11文字) を抽出する。Shorts / 通常 / youtu.be に対応。"""
+    if not url:
+        return None
+    m = re.search(r'(?:v=|/shorts/|youtu\.be/)([a-zA-Z0-9_-]{11})', url)
+    return m.group(1) if m else None
+
+
+def detect_twitter_amplification(video_info, tweet_history):
+    """tweet_history.json から動画 URL / videoId / タイトル前半が
+    含まれるツイートを検索する。
+
+    Q2 推奨どおり、URL or タイトル前半 20 文字一致で判定（バランス）。
+
+    Returns
+    -------
+    dict | None
+        {"matches": int, "total_likes": int, "total_retweets": int,
+         "strength": "strong"|"medium"|"weak", "description": str}
+    """
+    if not tweet_history:
+        return None
+
+    url = video_info.get("url", "") or ""
+    title = video_info.get("title", "") or ""
+    video_id = _extract_video_id(url)
+
+    matches = []
+    total_likes = 0
+    total_retweets = 0
+
+    title_prefix = title[:20] if len(title) > 10 else None  # 短すぎるタイトルは誤マッチ防止
+
+    for date_key, tweets in tweet_history.items():
+        for t in tweets:
+            text = (t.get("text", "") or "")
+            matched = False
+            if url and url in text:
+                matched = True
+            elif video_id and video_id in text:
+                matched = True
+            elif title_prefix and title_prefix in text:
+                matched = True
+            if matched:
+                matches.append(t)
+                total_likes += int(t.get("like_count", 0) or 0)
+                total_retweets += int(t.get("retweet_count", 0) or 0)
+
+    if not matches:
+        return None
+
+    n = len(matches)
+    if n >= 5 and total_likes >= 1000:
+        strength = "strong"
+        desc = f"Twitter で {n} 件のツイートで言及（合計 {total_likes:,} いいね、{total_retweets:,} RT）。Twitter 発のバズの可能性が高い"
+    elif n >= 2 or total_likes >= 500:
+        strength = "medium"
+        desc = f"Twitter で {n} 件のツイート（合計 {total_likes:,} いいね）で言及"
+    else:
+        strength = "weak"
+        desc = f"Twitter で {n} 件の言及（弱シグナル）"
+
+    return {
+        "matches": n,
+        "total_likes": total_likes,
+        "total_retweets": total_retweets,
+        "strength": strength,
+        "description": desc,
+    }
+
+
+def detect_tiktok_amplification(video_info, tiktok_history):
+    """tiktok_history.json から同チャンネル名 or タイトル前半一致の TikTok 動画を検索。
+
+    YouTube 動画 URL は TikTok 投稿には基本含まれないため、author 名・title での
+    類似マッチで「同じ VTuber が TikTok でもバズっている」シグナルを検出する。
+    """
+    if not tiktok_history:
+        return None
+
+    channel = (video_info.get("channel", "") or video_info.get("channel_title", "") or "").strip()
+    title = (video_info.get("title", "") or "").strip()
+
+    if not channel and not title:
+        return None
+
+    matches = []
+    total_views = 0
+    total_likes = 0
+
+    title_prefix = title[:15] if len(title) > 8 else None
+
+    for date_key, videos in tiktok_history.items():
+        for v in videos:
+            v_author = (v.get("author", "") or "").strip()
+            v_title = (v.get("title", "") or "").strip()
+            matched = False
+            # 同名 VTuber (author 完全一致 or 部分一致)
+            if channel and len(channel) >= 3:
+                if channel == v_author or channel in v_author or v_author in channel:
+                    matched = True
+            # タイトル一致
+            if not matched and title_prefix and title_prefix in v_title:
+                matched = True
+            if matched:
+                matches.append(v)
+                total_views += int(v.get("views", 0) or 0)
+                total_likes += int(v.get("likes", 0) or 0)
+
+    if not matches:
+        return None
+
+    n = len(matches)
+    desc = (
+        f"TikTok でも同じ VTuber/コンテンツの動画 {n} 件（合計 {total_views:,} 再生、{total_likes:,} いいね）が確認"
+    )
+    strength = "strong" if total_views >= 100000 else "medium" if total_views >= 10000 else "weak"
+
+    return {
+        "matches": n,
+        "total_views": total_views,
+        "total_likes": total_likes,
+        "strength": strength,
+        "description": desc,
+    }
+
+
+def detect_external_referrer_in_comments(comments):
+    """コメント内の「Twitter から来ました」「TikTok で見た」等の言及を検出する。
+
+    Returns
+    -------
+    dict | None
+        {"sources": [...], "total_mentions": int, "description": str}
+    """
+    if not comments:
+        return None
+
+    # カテゴリ別カウント
+    counts = {cat: 0 for cat in EXTERNAL_REFERRER_KEYWORDS}
+    for c in comments:
+        text = (c.get("text", "") or "").lower()
+        for cat, keywords in EXTERNAL_REFERRER_KEYWORDS.items():
+            for kw in keywords:
+                if kw.lower() in text:
+                    counts[cat] += 1
+                    break  # 同じコメントで複数キーワードが当たっても 1 と数える
+
+    # 検出されたカテゴリのみ抽出
+    detected = {cat: cnt for cat, cnt in counts.items() if cnt > 0}
+    if not detected:
+        return None
+
+    sources = sorted(detected.keys(), key=lambda k: detected[k], reverse=True)
+    total = sum(detected.values())
+    desc_parts = [f"{cat}({detected[cat]}件)" for cat in sources[:3]]
+    desc = f"コメントに外部流入言及: {' / '.join(desc_parts)}"
+
+    return {
+        "sources": sources,
+        "category_counts": detected,
+        "total_mentions": total,
+        "description": desc,
+    }
+
+
+# =============================================================================
 # 統合エントリーポイント
 # =============================================================================
 
@@ -499,7 +679,7 @@ def analyze_video_holistic(
 
     Phase 1 (実装済): content / title_patterns / timing / engagement
     Phase 2 (実装済): trend / channel_context / viral_pattern
-    Phase 3 (Phase 3 で追加予定): amplification
+    Phase 3 (実装済): amplification (twitter / tiktok / comment_referrers)
     """
     factors = {}
     comments = comments or []
@@ -525,6 +705,26 @@ def analyze_video_holistic(
     pat = detect_viral_pattern(video_info)
     if pat:
         factors["viral_pattern"] = pat
+
+    # Phase 3: 外部プラットフォーム連携（拡散経路の特定）
+    amplification = {"sources": []}
+    if tweet_history:
+        tw = detect_twitter_amplification(video_info, tweet_history)
+        if tw:
+            amplification["twitter"] = tw
+            amplification["sources"].append(tw["description"])
+    if tiktok_history:
+        tt = detect_tiktok_amplification(video_info, tiktok_history)
+        if tt:
+            amplification["tiktok"] = tt
+            amplification["sources"].append(tt["description"])
+    if comments:
+        ref = detect_external_referrer_in_comments(comments)
+        if ref:
+            amplification["comment_referrers"] = ref
+            amplification["sources"].append(ref["description"])
+    if amplification["sources"]:
+        factors["amplification"] = amplification
 
     # 人気コメント（トップレベルに別出し）
     if comments:
@@ -561,7 +761,12 @@ def format_holistic_analysis(factors):
     if trend and trend.get("game_name"):
         parts.append(f"【ジャンル・トレンド】{trend['description']}")
 
-    # 2. 拡散パターン（不自然なパターンのみ表示 = 後発・再浮上）
+    # 2. 拡散経路（Twitter / TikTok / コメント外部言及）
+    amp = factors.get("amplification")
+    if amp and amp.get("sources"):
+        parts.append(f"【拡散経路】{' / '.join(amp['sources'])}")
+
+    # 3. 拡散パターン（不自然なパターンのみ表示 = 後発・再浮上）
     pat = factors.get("viral_pattern")
     if pat and pat.get("type") in ("delayed_viral", "resurgence"):
         parts.append(f"【拡散パターン】{pat['description']}")

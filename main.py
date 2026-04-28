@@ -17,6 +17,7 @@ from vtuber_common import (
     has_japanese_kana,
     is_japanese_vtuber,
     write_latest_snapshot,
+    load_analysis_contexts,
 )
 from buzz_analysis import analyze_video_holistic, format_holistic_analysis
 
@@ -365,11 +366,14 @@ def fetch_and_analyze_all(results):
     """全ランキング動画のコメントを取得し、buzz_analysis で多角解析する。
 
     factors dict と人間向け analysis テキストの両方を r に格納する：
-      r["factors"]: 構造化された解析結果（content/title/timing/engagement/...）
+      r["factors"]: 構造化された解析結果（content/trend/amplification/...）
       r["analysis"]: viewer.html 表示用の整形済みテキスト
     """
     print(f"\n[5/5] コメント分析中...")
     total = len(results)
+
+    # 外部プラットフォーム連携用 contexts を一度だけロード
+    contexts = load_analysis_contexts()
 
     for i, r in enumerate(results):
         video_id = r["url"].split("/shorts/")[-1] if "/shorts/" in r["url"] else ""
@@ -380,12 +384,12 @@ def fetch_and_analyze_all(results):
 
         print(f"  [{i+1}/{total}] {r['channel'][:20]}...")
         comments = fetch_comments(video_id)
-        # video_info は r をそのまま渡す（title/views/subscribers/comments/growth_rate/published/url/channel_id 揃い）
-        # long_db_path: 横動画 DB を共用してゲームトレンド/チャンネル文脈を解析
         factors = analyze_video_holistic(
             r, comments,
             growth_thresholds=(50, 15, 5),
-            long_db_path="youtube_long.db",
+            long_db_path=contexts["long_db_path"],
+            tweet_history=contexts["tweet_history"],
+            tiktok_history=contexts["tiktok_history"],
         )
         r["factors"] = factors
         r["analysis"] = format_holistic_analysis(factors)

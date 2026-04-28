@@ -91,6 +91,42 @@ def is_japanese_vtuber(video: Mapping, channel_name: Optional[str]) -> bool:
 from buzz_analysis import ANALYSIS_CATEGORIES, analyze_comments  # noqa: E402, F401
 
 
+def load_analysis_contexts():
+    """buzz_analysis 用の外部データを load する補助関数。
+
+    存在するファイルだけ読み込んで dict で返す。返却形式:
+        {
+          "tweet_history": {...} | None,
+          "tiktok_history": {...} | None,
+          "long_db_path": "youtube_long.db" | None,
+        }
+
+    各 main_*.py の fetch_and_analyze_all から呼び出して contexts を渡す。
+    ファイル無しでも動作するよう例外は飲む（部分機能で続行）。
+    """
+    contexts = {
+        "tweet_history": None,
+        "tiktok_history": None,
+        "long_db_path": None,
+    }
+    import os as _os
+    if _os.path.exists("tweet_history.json"):
+        try:
+            with open("tweet_history.json", "r", encoding="utf-8") as f:
+                contexts["tweet_history"] = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+    if _os.path.exists("tiktok_history.json"):
+        try:
+            with open("tiktok_history.json", "r", encoding="utf-8") as f:
+                contexts["tiktok_history"] = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+    if _os.path.exists("youtube_long.db"):
+        contexts["long_db_path"] = "youtube_long.db"
+    return contexts
+
+
 def write_latest_snapshot(history: Mapping[str, object], out_path: str, days: int = 30) -> int:
     """history dict (キー = "YYYY-MM-DD" の日付) から直近 N 日分だけ抽出した
     軽量版 JSON を out_path に書き出す。

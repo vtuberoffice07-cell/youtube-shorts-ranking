@@ -22,6 +22,7 @@ from vtuber_common import (
     has_japanese_kana,
     is_japanese_vtuber,
     write_latest_snapshot,
+    load_analysis_contexts,
 )
 from buzz_analysis import analyze_video_holistic, format_holistic_analysis
 
@@ -260,6 +261,7 @@ def fetch_and_analyze_all(results):
     """buzz_analysis で多角解析（factors + analysis テキスト）を r に格納。"""
     print(f"\n[5/5] コメント分析中...")
     total = len(results)
+    contexts = load_analysis_contexts()
     for i, r in enumerate(results):
         video_id = r["url"].split("/shorts/")[-1] if "/shorts/" in r["url"] else ""
         if not video_id:
@@ -271,7 +273,9 @@ def fetch_and_analyze_all(results):
         factors = analyze_video_holistic(
             r, comments,
             growth_thresholds=(50, 15, 5),
-            long_db_path="youtube_long.db",
+            long_db_path=contexts["long_db_path"],
+            tweet_history=contexts["tweet_history"],
+            tiktok_history=contexts["tiktok_history"],
         )
         r["factors"] = factors
         r["analysis"] = format_holistic_analysis(factors)
