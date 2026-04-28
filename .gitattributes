@@ -1,0 +1,27 @@
+# 改行コードの統一（クロスプラットフォーム対策）
+* text=auto eol=lf
+
+# テキストファイルとして扱うが diff 表示は最小限に（ノイズ削減）
+# git の delta 圧縮は通常通り効くため .git のサイズには寄与する
+*.json     text eol=lf -diff
+*.jsonl    text eol=lf -diff
+
+# CSV はそのまま diff 可能
+*.csv      text eol=lf
+
+# Python / Markdown / YAML は通常通り
+*.py       text eol=lf diff=python
+*.md       text eol=lf
+*.yml      text eol=lf
+*.yaml     text eol=lf
+*.html     text eol=lf
+*.css      text eol=lf
+
+# バイナリ
+*.db       binary
+*.sqlite   binary
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.webp     binary

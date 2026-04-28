@@ -144,7 +144,15 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # 全データファイルをステージング（存在するものだけ）
-          for f in ranking_history.json ranking_output.csv ranking_all_history.json ranking_all_output.csv long_history.json long_output.csv youtube_long.db tiktok_history.json tiktok_output.csv tiktok.db tweet_history.json tweet_output.csv tweets.db hints_report.json; do
+          # *_latest.json は viewer.html の初期表示高速化用（直近30日分の軽量版）
+          # quota_log.jsonl は YouTube API 消費の長期トラッキング用
+          for f in \
+            ranking_history.json ranking_latest.json ranking_output.csv \
+            ranking_all_history.json ranking_all_latest.json ranking_all_output.csv \
+            long_history.json long_output.csv youtube_long.db \
+            tiktok_history.json tiktok_output.csv tiktok.db \
+            tweet_history.json tweet_latest.json tweet_output.csv tweets.db \
+            hints_report.json quota_log.jsonl; do
             if [ -f "$f" ]; then
               git add "$f"
             fi
