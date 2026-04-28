@@ -409,6 +409,33 @@
   }
   .analysis-box .analysis-section {
     margin-bottom: 8px;
+    padding: 6px 10px;
+    border-left: 3px solid #444;
+    border-radius: 3px;
+  }
+  /* 強シグナル: ジャンル・トレンド / 拡散経路 - 動画が伸びた主要因 */
+  .analysis-box .analysis-strong {
+    border-left-color: #ff4060;
+    background: rgba(255, 64, 96, 0.08);
+  }
+  .analysis-box .analysis-strong .analysis-label {
+    color: #ff4060;
+  }
+  /* 中シグナル: バズ要因 / 注目度 / チャンネル文脈 / 拡散パターン */
+  .analysis-box .analysis-medium {
+    border-left-color: #e94560;
+    background: rgba(233, 69, 96, 0.04);
+  }
+  .analysis-box .analysis-medium .analysis-label {
+    color: #e94560;
+  }
+  /* 弱シグナル: タイトル特徴 / 投稿タイミング / エンゲージメント / 人気コメント */
+  .analysis-box .analysis-weak {
+    border-left-color: #555;
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .analysis-box .analysis-weak .analysis-label {
+    color: #aaa;
   }
   .analysis-box .analysis-label {
     color: #e94560;
@@ -421,6 +448,33 @@
   .analysis-box .analysis-quote {
     color: #f9844a;
     font-style: italic;
+  }
+  /* 「詳細を見る」ボタン */
+  .analysis-toggle-detail {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 4px 10px;
+    background: #2a2a3e;
+    border: 1px solid #555;
+    color: #aaa;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    user-select: none;
+  }
+  .analysis-toggle-detail:hover {
+    background: #3a3a4e;
+    color: #ccc;
+  }
+  /* デフォルト: 弱シグナルは折りたたみ表示 (Q5 推奨どおり) */
+  .analysis-box.collapsed .analysis-weak {
+    display: none;
+  }
+  .analysis-box.expanded .analysis-toggle-detail::before {
+    content: '▼ ';
+  }
+  .analysis-box.collapsed .analysis-toggle-detail::before {
+    content: '▶ ';
   }
   tbody tr.expandable { cursor: pointer; }
   tbody tr.expandable:hover { background: #1e1e34; }
@@ -1591,7 +1645,7 @@ function renderTable(data) {
 
     if (hasAnalysis) {
       rows += `<tr class="analysis-row" id="${rowId}" style="display:none;">
-        <td colspan="12"><div class="analysis-box">${analysisHtml}</div></td>
+        <td colspan="12"><div class="analysis-box collapsed">${analysisHtml}</div></td>
       </tr>`;
     }
     return rows;
@@ -1614,6 +1668,24 @@ function toggleAnalysis(rowId, clickedRow) {
 // XSS 対策: data-toggle-row 属性を持つ行のクリックを document 全体で委譲して捕捉する
 // （onclick 属性に文字列補間する旧方式を廃止）
 document.addEventListener('click', (e) => {
+  // 「詳細を見る」ボタン: 弱シグナルセクションの折りたたみ toggle
+  const detailBtn = e.target.closest('[data-toggle-detail]');
+  if (detailBtn) {
+    e.stopPropagation();  // 親行の toggleAnalysis を発火させない
+    const box = detailBtn.closest('.analysis-box');
+    if (box) {
+      if (box.classList.contains('collapsed')) {
+        box.classList.remove('collapsed');
+        box.classList.add('expanded');
+        detailBtn.textContent = detailBtn.textContent.replace('詳細を見る', '詳細を隠す');
+      } else {
+        box.classList.add('collapsed');
+        box.classList.remove('expanded');
+        detailBtn.textContent = detailBtn.textContent.replace('詳細を隠す', '詳細を見る');
+      }
+    }
+    return;
+  }
   // <a> タグなど内部要素は event.stopPropagation() しているので影響を受けない
   const row = e.target.closest('[data-toggle-row]');
   if (row && row.dataset.toggleRow) {
@@ -1621,18 +1693,52 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// セクション強度マッピング: ラベル名 → クラス（CSS で色分け）
+//   strong: 動画が伸びた主要因（ジャンル・トレンド / 拡散経路）
+//   medium: バズの中核要素（バズ要因 / 注目度 / チャンネル文脈 / 拡散パターン）
+//   weak  : 補助情報（タイトル特徴 / 投稿タイミング / エンゲージメント / 人気コメント）
+const ANALYSIS_LABEL_STRENGTH = {
+  'ジャンル・トレンド': 'strong',
+  '拡散経路': 'strong',
+  '拡散パターン': 'medium',
+  'バズ要因': 'medium',
+  '注目度': 'medium',
+  'チャンネル文脈': 'medium',
+  'タイトル特徴': 'weak',
+  '投稿タイミング': 'weak',
+  'エンゲージメント': 'weak',
+  '人気コメント': 'weak',
+};
+
 function formatAnalysis(text) {
   if (!text) return '';
   // XSS対策: 先に HTML エスケープしてから記号装飾を適用する。
   // 【】「」は HTML 特殊文字ではないので、エスケープ後でも以下のregexは機能する。
   const escaped = String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-  return escaped.split('\n').map(line => {
-    // 【ラベル】の部分を色付きにする
+
+  let weakCount = 0;
+  const sections = escaped.split('\n').map(line => {
+    if (!line.trim()) return '';
+
+    const labelMatch = line.match(/^【([^】]+)】/);
+    const labelName = labelMatch ? labelMatch[1] : '';
+    const strength = ANALYSIS_LABEL_STRENGTH[labelName] || 'medium';
+    if (strength === 'weak') weakCount++;
+
     line = line.replace(/【([^】]+)】/g, '<span class="analysis-label">【$1】</span>');
-    // 「コメント引用」をハイライト
     line = line.replace(/「([^」]+)」/g, '<span class="analysis-quote">「$1」</span>');
-    return `<div class="analysis-section">${line}</div>`;
-  }).join('');
+
+    return `<div class="analysis-section analysis-${strength}" data-section="${labelName}">${line}</div>`;
+  }).filter(s => s).join('');
+
+  // 弱シグナルが 1 つ以上あれば「詳細を見る」ボタンを末尾に追加
+  // ボタンクリックで .analysis-box の collapsed/expanded クラスを toggle する
+  // （クリック委譲は toggleAnalysis と同じ document level listener で拾う）
+  const toggleBtn = weakCount > 0
+    ? `<div class="analysis-toggle-detail" data-toggle-detail>詳細を見る (${weakCount}項目)</div>`
+    : '';
+
+  return sections + toggleBtn;
 }
 
 function renderGrid(data) {
@@ -1993,7 +2099,7 @@ function allRenderTable(data) {
 
     if (hasAnalysis) {
       rows += `<tr class="analysis-row" id="${rowId}" style="display:none;">
-        <td colspan="12"><div class="analysis-box">${analysisHtml}</div></td>
+        <td colspan="12"><div class="analysis-box collapsed">${analysisHtml}</div></td>
       </tr>`;
     }
     return rows;
@@ -2204,7 +2310,7 @@ function longRenderTable(data) {
 
     if (hasAnalysis) {
       rows += `<tr class="analysis-row" id="${rowId}" style="display:none;">
-        <td colspan="12"><div class="analysis-box">${analysisHtml}</div></td>
+        <td colspan="12"><div class="analysis-box collapsed">${analysisHtml}</div></td>
       </tr>`;
     }
     return rows;
