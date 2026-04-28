@@ -169,7 +169,12 @@ def init_db():
 
 
 def upsert_channels(conn, channels):
-    """チャンネルを UPSERT。既存行は subscriber_count / title を更新。"""
+    """チャンネルを UPSERT。既存行は subscriber_count / title を更新。
+
+    2026-04-28 バグ修正: bootstrap_channels_via_video_lookup() などが
+    subscriber_count=0 で upsert すると、過去に正しく取得済みの値を 0 で
+    上書きしてしまい TOP200 から漏れる事象を修正。0 が来た時は既存値を保持する。
+    """
     now_iso = datetime.now(timezone.utc).isoformat()
     for ch in channels:
         conn.execute("""
@@ -178,8 +183,11 @@ def upsert_channels(conn, channels):
                 uploads_playlist_id, source, last_scanned, added_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(channel_id) DO UPDATE SET
-                title = excluded.title,
-                subscriber_count = excluded.subscriber_count,
+                title = CASE WHEN excluded.title != '' THEN excluded.title ELSE vtuber_channels.title END,
+                subscriber_count = CASE
+                    WHEN excluded.subscriber_count > 0 THEN excluded.subscriber_count
+                    ELSE vtuber_channels.subscriber_count
+                END,
                 uploads_playlist_id = CASE
                     WHEN excluded.uploads_playlist_id != '' THEN excluded.uploads_playlist_id
                     ELSE vtuber_channels.uploads_playlist_id
@@ -393,9 +401,13 @@ def discover_via_search(quota):
 
 
 def fetch_uploads_playlist_ids(conn, quota):
-    """vtuber_channels で uploads_playlist_id 未取得のものについて channels.list で取得"""
+    """vtuber_channels で uploads_playlist_id 未取得 or subscriber_count=0 のチャンネルを
+    channels.list で取得。2026-04-28: bootstrap で subscriber_count=0 のまま放置されていた
+    過去データの修復もこのパスで行う（24.5% が 0 だった）。"""
     rows = conn.execute(
-        "SELECT channel_id FROM vtuber_channels WHERE uploads_playlist_id = '' LIMIT 500"
+        "SELECT channel_id FROM vtuber_channels "
+        "WHERE uploads_playlist_id = '' OR subscriber_count = 0 "
+        "LIMIT 500"
     ).fetchall()
     channel_ids = [r[0] for r in rows if r[0]]
     if not channel_ids:
