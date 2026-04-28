@@ -1535,7 +1535,8 @@ function renderTable(data) {
     const analysisHtml = hasAnalysis ? formatAnalysis(d.analysis) : '';
     const rowId = `yt-analysis-${i}`;
 
-    let rows = `<tr class="${hasAnalysis ? 'expandable' : ''}" onclick="${hasAnalysis ? `toggleAnalysis('${rowId}', this)` : ''}">
+    // XSS対策: onclick内に文字列補間する代わりに data 属性 + event delegation を使う
+    let rows = `<tr class="${hasAnalysis ? 'expandable' : ''}"${hasAnalysis ? ` data-toggle-row="${rowId}"` : ''}>
       <td class="rank${rankClass}">${rank}${expandIcon}</td>
       <td class="thumb-cell">${thumbHtml}</td>
       <td class="title-cell">${esc(d.title)}</td>
@@ -1572,9 +1573,22 @@ function toggleAnalysis(rowId, clickedRow) {
   }
 }
 
+// XSS 対策: data-toggle-row 属性を持つ行のクリックを document 全体で委譲して捕捉する
+// （onclick 属性に文字列補間する旧方式を廃止）
+document.addEventListener('click', (e) => {
+  // <a> タグなど内部要素は event.stopPropagation() しているので影響を受けない
+  const row = e.target.closest('[data-toggle-row]');
+  if (row && row.dataset.toggleRow) {
+    toggleAnalysis(row.dataset.toggleRow, row);
+  }
+});
+
 function formatAnalysis(text) {
   if (!text) return '';
-  return text.split('\n').map(line => {
+  // XSS対策: 先に HTML エスケープしてから記号装飾を適用する。
+  // 【】「」は HTML 特殊文字ではないので、エスケープ後でも以下のregexは機能する。
+  const escaped = String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  return escaped.split('\n').map(line => {
     // 【ラベル】の部分を色付きにする
     line = line.replace(/【([^】]+)】/g, '<span class="analysis-label">【$1】</span>');
     // 「コメント引用」をハイライト
@@ -1904,7 +1918,8 @@ function allRenderTable(data) {
     const analysisHtml = hasAnalysis ? formatAnalysis(d.analysis) : '';
     const rowId = `all-analysis-${i}`;
 
-    let rows = `<tr class="${hasAnalysis ? 'expandable' : ''}" onclick="${hasAnalysis ? `toggleAnalysis('${rowId}', this)` : ''}">
+    // XSS対策: onclick内に文字列補間する代わりに data 属性 + event delegation を使う
+    let rows = `<tr class="${hasAnalysis ? 'expandable' : ''}"${hasAnalysis ? ` data-toggle-row="${rowId}"` : ''}>
       <td class="rank${rankClass}">${rank}${expandIcon}</td>
       <td class="thumb-cell">${thumbHtml}</td>
       <td class="title-cell">${esc(d.title)}</td>
