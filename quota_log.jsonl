@@ -1,0 +1,3 @@
+{"timestamp": "2026-04-29T07:54:05+09:00", "script": "main.py", "search_list": 16, "videos_list": 12, "channels_list": 10, "total_units": 1622}
+{"timestamp": "2026-04-29T07:54:15+09:00", "script": "main_all.py", "search_list": 16, "videos_list": 12, "channels_list": 10, "total_units": 1622}
+{"timestamp": "2026-04-29T07:55:27+09:00", "script": "main_long.py", "search_list": 2, "videos_list": 60, "channels_list": 7, "playlist_items_list": 200, "comment_threads_list": 13, "total_units": 480}
