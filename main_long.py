@@ -34,8 +34,8 @@ from vtuber_common import (
     contains_ng_keyword as _common_contains_ng_keyword,
     has_japanese_kana,
     is_japanese_vtuber,
-    analyze_comments,
 )
+from buzz_analysis import analyze_video_holistic, format_holistic_analysis
 
 # Windows cp932 で出力エラーを防ぐ
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -719,7 +719,7 @@ def _extract_long_video_id(url):
 
 
 def fetch_and_analyze_all_long(results, quota, limit_top_n=20):
-    """ランキング上位 N 件のコメントを取得・分析して r['analysis'] にセット。
+    """ランキング上位 N 件のコメントを取得し、buzz_analysis で多角解析する。
 
     クォータ節約のため、デフォルトでは上位 limit_top_n 件のみ分析する
     （横動画は1回あたりの全体ランキング件数が少ないため、20件で十分）。
@@ -728,6 +728,8 @@ def fetch_and_analyze_all_long(results, quota, limit_top_n=20):
     伸び率しきい値は (5, 2, 1) を使う：横動画は VIEW_MULTIPLIER=0.3 で
     Shorts(=3) より大幅に低いため、Shorts のしきい値 (50,15,5) では
     【注目度】が常に空になってしまう。
+
+    factors dict を r["factors"] に、整形済みテキストを r["analysis"] に格納。
     """
     if not results:
         return
@@ -735,19 +737,30 @@ def fetch_and_analyze_all_long(results, quota, limit_top_n=20):
     analyzed_count = 0
     for i, r in enumerate(results):
         if i >= limit_top_n:
-            r["analysis"] = ""  # 圏外は分析無し
+            r["analysis"] = ""
+            r["factors"] = {}
             continue
         video_id = _extract_long_video_id(r.get("url", ""))
         if not video_id:
             r["analysis"] = ""
+            r["factors"] = {}
             continue
-        # video_info の subscribers/growth_rate キーを analyze_comments の期待形式に合わせる
+        # video_info の subscribers/growth_rate/title/published/url を整形
         video_info = {
-            "growth_rate": r.get("growth_rate", 0),
+            "title": r.get("title", ""),
+            "channel": r.get("channel_title", ""),
+            "channel_id": r.get("channel_id", ""),
+            "url": r.get("url", ""),
+            "published": r.get("published", ""),
+            "views": r.get("view_count", 0),
             "subscribers": r.get("subscriber_count", 0),
+            "comments": r.get("comment_count", 0),
+            "growth_rate": r.get("growth_rate", 0),
         }
         comments = fetch_comments_long(video_id, quota)
-        r["analysis"] = analyze_comments(comments, video_info, growth_thresholds=(5, 2, 1))
+        factors = analyze_video_holistic(video_info, comments, growth_thresholds=(5, 2, 1))
+        r["factors"] = factors
+        r["analysis"] = format_holistic_analysis(factors)
         analyzed_count += 1
         if (i + 1) % 5 == 0 or i + 1 == min(limit_top_n, len(results)):
             print(f"  [{i+1}/{min(limit_top_n, len(results))}] {r.get('channel_title','')[:20]}...")

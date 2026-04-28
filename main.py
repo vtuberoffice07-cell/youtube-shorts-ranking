@@ -17,8 +17,8 @@ from vtuber_common import (
     has_japanese_kana,
     is_japanese_vtuber,
     write_latest_snapshot,
-    analyze_comments,
 )
+from buzz_analysis import analyze_video_holistic, format_holistic_analysis
 
 # Windows cp932 で出力エラーを防ぐ
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -358,11 +358,16 @@ def fetch_comments(video_id, max_results=30):
         return []
 
 
-# analyze_comments / ANALYSIS_CATEGORIES は vtuber_common.py に集約済み（先頭で import）。
+# 解析ロジックは buzz_analysis.py に集約済み（先頭で import）。
 
 
 def fetch_and_analyze_all(results):
-    """全ランキング動画のコメントを取得・分析する"""
+    """全ランキング動画のコメントを取得し、buzz_analysis で多角解析する。
+
+    factors dict と人間向け analysis テキストの両方を r に格納する：
+      r["factors"]: 構造化された解析結果（content/title/timing/engagement/...）
+      r["analysis"]: viewer.html 表示用の整形済みテキスト
+    """
     print(f"\n[5/5] コメント分析中...")
     total = len(results)
 
@@ -370,11 +375,15 @@ def fetch_and_analyze_all(results):
         video_id = r["url"].split("/shorts/")[-1] if "/shorts/" in r["url"] else ""
         if not video_id:
             r["analysis"] = "動画IDを取得できませんでした"
+            r["factors"] = {}
             continue
 
         print(f"  [{i+1}/{total}] {r['channel'][:20]}...")
         comments = fetch_comments(video_id)
-        r["analysis"] = analyze_comments(comments, r)
+        # video_info に必要なキーは r に揃っている（title/views/subscribers/comments/growth_rate/published/url/channel_id）
+        factors = analyze_video_holistic(r, comments, growth_thresholds=(50, 15, 5))
+        r["factors"] = factors
+        r["analysis"] = format_holistic_analysis(factors)
 
     print(f"  → {total}件の分析完了")
 

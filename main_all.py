@@ -22,8 +22,8 @@ from vtuber_common import (
     has_japanese_kana,
     is_japanese_vtuber,
     write_latest_snapshot,
-    analyze_comments,
 )
+from buzz_analysis import analyze_video_holistic, format_holistic_analysis
 
 # Windows cp932 で出力エラーを防ぐ
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -257,16 +257,20 @@ def fetch_comments(video_id, max_results=30):
 
 
 def fetch_and_analyze_all(results):
+    """buzz_analysis で多角解析（factors + analysis テキスト）を r に格納。"""
     print(f"\n[5/5] コメント分析中...")
     total = len(results)
     for i, r in enumerate(results):
         video_id = r["url"].split("/shorts/")[-1] if "/shorts/" in r["url"] else ""
         if not video_id:
             r["analysis"] = "動画IDを取得できませんでした"
+            r["factors"] = {}
             continue
         print(f"  [{i+1}/{total}] {r['channel'][:20]}...")
         comments = fetch_comments(video_id)
-        r["analysis"] = analyze_comments(comments, r)
+        factors = analyze_video_holistic(r, comments, growth_thresholds=(50, 15, 5))
+        r["factors"] = factors
+        r["analysis"] = format_holistic_analysis(factors)
     print(f"  → {total}件の分析完了")
 
 
