@@ -165,6 +165,13 @@ https://github.com/vtuberoffice07-cell/youtube-shorts-ranking
 The quota tracker output of a representative run is included as evidence:
 - 2026-04-28 main_long.py: search.list=2 (200), playlistItems.list=200 (200),
   videos.list=60 (60), channels.list=9 (9), total=469 quota.
+
+== Authentication notice ==
+
+The viewer at https://vtuberoffice07-cell.github.io/youtube-shorts-ranking/viewer.html
+is publicly accessible without any authentication during the audit period
+(authentication has been temporarily disabled for review purposes). All
+features are accessible directly upon URL access.
 ```
 
 ---
