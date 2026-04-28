@@ -3,3 +3,10 @@ __pycache__/
 .claude/
 tweet_raw_debug.json
 tiktok_raw_debug.json
+
+# 内部開発メモ（公開対象外）
+tasks/
+
+# pytest / mypy などの作業ディレクトリ
+.pytest_cache/
+.mypy_cache/

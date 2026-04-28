@@ -11,8 +11,10 @@ on:
 jobs:
   fetch-ranking:
     runs-on: ubuntu-latest
+    timeout-minutes: 30  # ジョブ全体のタイムアウト（API ハング時の暴走防止）
     permissions:
       contents: write
+      issues: write  # 失敗時に通知 Issue を自動作成するため
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -30,11 +32,13 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
+        timeout-minutes: 5
         run: pip install -r requirements.txt
 
       # ===== YouTube ランキング（失敗したら即エラーで見える化） =====
       - name: Run YouTube ranking (個人VTuber)
         id: youtube_personal
+        timeout-minutes: 10
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
@@ -50,6 +54,7 @@ jobs:
 
       - name: Run YouTube ranking (全体版)
         id: youtube_all
+        timeout-minutes: 10
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
@@ -64,6 +69,7 @@ jobs:
 
       - name: Run YouTube ranking (横動画 4-30分 medium)
         id: youtube_long
+        timeout-minutes: 10
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
@@ -79,12 +85,14 @@ jobs:
 
       # ===== TikTok / Twitter（失敗しても続行） =====
       - name: Run TikTok ranking
+        timeout-minutes: 10
         env:
           APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
         run: python tiktok_ranking.py
         continue-on-error: true
 
       - name: Run Twitter ranking
+        timeout-minutes: 10
         env:
           APIFY_API_TOKEN: ${{ secrets.APIFY_API_TOKEN }}
         run: python tweet_ranking.py
@@ -92,6 +100,7 @@ jobs:
 
       # ===== ヒントレポート生成（API不要・毎回最新データで更新） =====
       - name: Generate hints report
+        timeout-minutes: 5
         run: python generate_hints.py
         continue-on-error: true
 
@@ -159,4 +168,42 @@ jobs:
             git pull --rebase origin main 2>&1 || git pull origin main 2>&1
             git push 2>&1
             echo "✅ プッシュ完了"
+          fi
+
+      # ===== 必須ステップの失敗時のみ Issue を自動作成（通知の見える化） =====
+      # 個人VTuber/全体版 が両方失敗 = 致命的とみなす（横動画/TikTok/Twitter は continue-on-error）
+      - name: Notify on critical failure
+        if: failure() && (steps.youtube_personal.outcome == 'failure' || steps.youtube_all.outcome == 'failure')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="🚨 Daily ranking workflow failed: $(date +%Y-%m-%d)"
+          BODY=$(cat <<EOF
+          ## 失敗概要
+
+          - **実行日時**: $(date -u +"%Y-%m-%d %H:%M UTC") / $(TZ=Asia/Tokyo date +"%Y-%m-%d %H:%M JST")
+          - **Workflow run**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - **個人VTube ランキング**: ${{ steps.youtube_personal.outcome }}
+          - **全体ランキング**: ${{ steps.youtube_all.outcome }}
+          - **横動画ランキング**: ${{ steps.youtube_long.outcome }}
+
+          ## 主な原因候補
+
+          1. YouTube API クォータ超過（quotaExceeded）
+          2. API キー失効
+          3. ネットワーク障害
+
+          ## 確認手順
+
+          1. 上記 workflow run のログを確認
+          2. Google Cloud Console でクォータ状況を確認
+          3. Repository Secrets で API キーを確認
+          EOF
+          )
+          # 既に同じタイトルの open Issue があれば作成しない（連日失敗時の Issue 量産防止）
+          EXISTING=$(gh issue list --search "$TITLE in:title" --state open --json number --jq 'length')
+          if [ "$EXISTING" = "0" ]; then
+            gh issue create --title "$TITLE" --body "$BODY" --label "ci-failure" || echo "Issue作成失敗（labelが未作成の可能性）"
+          else
+            echo "既存の同名 Issue があるため作成をスキップ"
           fi
