@@ -34,6 +34,7 @@ from vtuber_common import (
     contains_ng_keyword as _common_contains_ng_keyword,
     has_japanese_kana,
     is_japanese_vtuber,
+    analyze_comments,
 )
 
 # Windows cp932 で出力エラーを防ぐ
@@ -324,6 +325,7 @@ class QuotaTracker:
         self.playlist_items_calls = 0
         self.videos_calls = 0
         self.channels_calls = 0
+        self.comment_threads_calls = 0  # commentThreads.list (1 quota/call) for バズ要因解析
 
     def total(self):
         return (
@@ -331,6 +333,7 @@ class QuotaTracker:
             + self.playlist_items_calls * 1
             + self.videos_calls * 1
             + self.channels_calls * 1
+            + self.comment_threads_calls * 1
         )
 
     def report(self):
@@ -338,6 +341,7 @@ class QuotaTracker:
         print(f"  playlistItems.list: {self.playlist_items_calls}回 = {self.playlist_items_calls} quota")
         print(f"  videos.list: {self.videos_calls}回 = {self.videos_calls} quota")
         print(f"  channels.list: {self.channels_calls}回 = {self.channels_calls} quota")
+        print(f"  commentThreads.list: {self.comment_threads_calls}回 = {self.comment_threads_calls} quota")
         print(f"  → 合計消費: 約 {self.total()} quota")
 
 
@@ -665,6 +669,92 @@ def load_top_videos_from_db(conn, days=SEARCH_DAYS, limit=50):
 
 
 # =============================================================================
+# コメント分析（バズ要因の解析）
+# =============================================================================
+
+def fetch_comments_long(video_id, quota, max_results=30):
+    """YouTube API で動画のコメントを取得する（解析用）。
+
+    quota.comment_threads_calls をインクリメントしてクォータ消費を記録する。
+    取得失敗時は空配列を返す（コメント無効化の動画では失敗するが続行可能）。
+    """
+    if not youtube or not video_id:
+        return []
+    try:
+        response = youtube.commentThreads().list(
+            part="snippet",
+            videoId=video_id,
+            maxResults=max_results,
+            order="relevance",
+            textFormat="plainText",
+        ).execute()
+        quota.comment_threads_calls += 1
+
+        comments = []
+        for item in response.get("items", []):
+            text = item["snippet"]["topLevelComment"]["snippet"]["textDisplay"]
+            likes = item["snippet"]["topLevelComment"]["snippet"].get("likeCount", 0)
+            comments.append({"text": text, "likes": likes})
+        return comments
+    except Exception as e:
+        # コメント無効化動画 / quotaExceeded / 削除済み等。失敗してもメイン処理は続行
+        if "quotaExceeded" in str(e):
+            print(f"  ⚠ commentThreads.list でクォータ上限。{quota.comment_threads_calls}件まで分析")
+        return []
+
+
+def _extract_long_video_id(url):
+    """横動画 URL から videoId を抽出する。
+    対応: https://www.youtube.com/watch?v=XXXXX / https://youtu.be/XXXXX
+    """
+    if not url:
+        return ""
+    m = re.search(r"[?&]v=([a-zA-Z0-9_-]{11})", url)
+    if m:
+        return m.group(1)
+    m = re.search(r"youtu\.be/([a-zA-Z0-9_-]{11})", url)
+    if m:
+        return m.group(1)
+    return ""
+
+
+def fetch_and_analyze_all_long(results, quota, limit_top_n=20):
+    """ランキング上位 N 件のコメントを取得・分析して r['analysis'] にセット。
+
+    クォータ節約のため、デフォルトでは上位 limit_top_n 件のみ分析する
+    （横動画は1回あたりの全体ランキング件数が少ないため、20件で十分）。
+    残りの件には analysis="" を設定（viewer 側でアイコン非表示になる）。
+
+    伸び率しきい値は (5, 2, 1) を使う：横動画は VIEW_MULTIPLIER=0.3 で
+    Shorts(=3) より大幅に低いため、Shorts のしきい値 (50,15,5) では
+    【注目度】が常に空になってしまう。
+    """
+    if not results:
+        return
+    print(f"\n[+] コメント分析中（上位 {min(limit_top_n, len(results))} 件）...")
+    analyzed_count = 0
+    for i, r in enumerate(results):
+        if i >= limit_top_n:
+            r["analysis"] = ""  # 圏外は分析無し
+            continue
+        video_id = _extract_long_video_id(r.get("url", ""))
+        if not video_id:
+            r["analysis"] = ""
+            continue
+        # video_info の subscribers/growth_rate キーを analyze_comments の期待形式に合わせる
+        video_info = {
+            "growth_rate": r.get("growth_rate", 0),
+            "subscribers": r.get("subscriber_count", 0),
+        }
+        comments = fetch_comments_long(video_id, quota)
+        r["analysis"] = analyze_comments(comments, video_info, growth_thresholds=(5, 2, 1))
+        analyzed_count += 1
+        if (i + 1) % 5 == 0 or i + 1 == min(limit_top_n, len(results)):
+            print(f"  [{i+1}/{min(limit_top_n, len(results))}] {r.get('channel_title','')[:20]}...")
+    print(f"  → {analyzed_count}件の分析完了")
+
+
+# =============================================================================
 # 出力
 # =============================================================================
 
@@ -736,6 +826,7 @@ def save_history(results):
             "duration": r["duration_sec"],
             "published": r["published"][:10],
             "url": r["url"],
+            "analysis": r.get("analysis", ""),  # バズ要因の解析テキスト（上位N件のみ生成）
         }
         for i, r in enumerate(results, 1)
     ]
@@ -830,6 +921,10 @@ def main():
     ranked = load_top_videos_from_db(conn, days=SEARCH_DAYS, limit=50)
     conn.close()
 
+    # コメント分析（上位 20 件のみ、クォータ消費 ~20 quota）。--dry では実 API を呼ばない。
+    if not DRY_RUN and ranked:
+        fetch_and_analyze_all_long(ranked, quota, limit_top_n=20)
+
     # 出力
     display_results(ranked)
     save_csv(ranked)
@@ -860,4 +955,5 @@ if __name__ == "__main__":
                 "videos_list": quota_result.videos_calls,
                 "channels_list": quota_result.channels_calls,
                 "playlist_items_list": quota_result.playlist_items_calls,
+                "comment_threads_list": quota_result.comment_threads_calls,
             })

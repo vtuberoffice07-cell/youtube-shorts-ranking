@@ -2181,8 +2181,14 @@ function longRenderTable(data) {
     const thumbHtml = videoId
       ? `<a href="${esc(d.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><img src="https://i.ytimg.com/vi/${videoId}/mqdefault.jpg" alt="" loading="lazy" onerror="this.src='https://i.ytimg.com/vi/${videoId}/hqdefault.jpg'"></a>`
       : '';
-    return `<tr>
-      <td class="rank${rankClass}">${rank}</td>
+
+    const hasAnalysis = d.analysis && d.analysis.trim();
+    const expandIcon = hasAnalysis ? '<span class="expand-icon">&#9654;</span>' : '';
+    const analysisHtml = hasAnalysis ? formatAnalysis(d.analysis) : '';
+    const rowId = `long-analysis-${i}`;
+
+    let rows = `<tr class="${hasAnalysis ? 'expandable' : ''}"${hasAnalysis ? ` data-toggle-row="${rowId}"` : ''}>
+      <td class="rank${rankClass}">${rank}${expandIcon}</td>
       <td class="thumb-cell">${thumbHtml}</td>
       <td class="title-cell">${esc(d.title)}</td>
       <td class="channel-cell" title="${esc(d.channel)}">${esc(d.channel)}</td>
@@ -2195,6 +2201,13 @@ function longRenderTable(data) {
       <td>${d.published || ''}</td>
       <td>${linkHtml}</td>
     </tr>`;
+
+    if (hasAnalysis) {
+      rows += `<tr class="analysis-row" id="${rowId}" style="display:none;">
+        <td colspan="12"><div class="analysis-box">${analysisHtml}</div></td>
+      </tr>`;
+    }
+    return rows;
   }).join('');
 }
 
