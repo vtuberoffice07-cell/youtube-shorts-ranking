@@ -268,7 +268,11 @@ def fetch_and_analyze_all(results):
             continue
         print(f"  [{i+1}/{total}] {r['channel'][:20]}...")
         comments = fetch_comments(video_id)
-        factors = analyze_video_holistic(r, comments, growth_thresholds=(50, 15, 5))
+        factors = analyze_video_holistic(
+            r, comments,
+            growth_thresholds=(50, 15, 5),
+            long_db_path="youtube_long.db",
+        )
         r["factors"] = factors
         r["analysis"] = format_holistic_analysis(factors)
     print(f"  → {total}件の分析完了")

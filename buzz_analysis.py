@@ -64,6 +64,24 @@ TITLE_EMOTION_KEYWORDS = [
     "炎上", "禁断", "やばい", "ヤバい", "ガチギレ", "ガチで", "本音",
 ]
 
+# ゲーム名抽出から除外するキーワード（雑談/歌枠/コラボ/イラスト等）
+NON_GAME_KEYWORDS = [
+    # 配信/動画タイプ
+    "ライブ", "live", "雑談", "初配信", "デビュー", "コラボ",
+    "PR", "宣伝", "告知", "Q&A", "質問", "総集編", "切り抜き", "まとめ",
+    "Vlog", "vlog", "VLOG", "ASMR", "睡眠導入", "睡眠",
+    "おしゃべり", "朝活", "夜活", "ホラー",
+    # VTuber 関連タグ（ゲーム名ではなくチャンネルメタタグ）
+    "VTuber", "Vtuber", "vtuber", "VTUBER", "個人勢", "新人",
+    # 歌系
+    "歌う", "歌って", "歌枠", "歌ってみた", "歌みた", "Cover", "cover", "カバー",
+    "弾き語り", "オリジナル曲", "MV",
+    # クリエイティブ系
+    "イラスト", "絵", "メイキング", "お絵描き", "作業",
+    # その他配信枠
+    "BGM", "勉強", "作業用",
+]
+
 
 # =============================================================================
 # Phase 1: 基礎検出器（コメント / タイトル / 時刻 / エンゲージメント）
@@ -257,7 +275,214 @@ def detect_engagement_quality(video_info):
 
 
 # =============================================================================
-# 統合エントリーポイント（Phase 1 版）
+# Phase 2: DB クロスリファレンス（ゲームトレンド / チャンネル文脈 / 拡散パターン）
+# =============================================================================
+
+def extract_game_name(title):
+    """タイトルからゲーム名候補を抽出する。
+
+    抽出パターン（Q1: 推奨案 B）:
+    1. 【...】内のテキスト
+    2. 「...」または『...』+ 実況/プレイ/やってみ/攻略/クリア
+    3. 実況: ... のような明示的なパターン
+
+    雑談・歌枠等の動画タイプは除外（NON_GAME_KEYWORDS）。
+    """
+    if not title:
+        return None
+
+    # パターン1: 【...】（最も VTuber 動画で使われる）
+    for m in re.finditer(r'【([^】]+)】', title):
+        candidate = m.group(1).strip()
+        if candidate and not any(kw in candidate for kw in NON_GAME_KEYWORDS):
+            # 短すぎる（VTuber 名タグ等）も除外: 2 文字以下
+            if len(candidate) >= 2:
+                return candidate
+
+    # パターン2: 「...」/『...』 + 実況/プレイ
+    for pattern in [
+        r'[「『]([^」』]+)[」』]\s*を?\s*(?:実況|プレイ|やってみ|攻略|クリア)',
+        r'(?:実況|プレイ)\s*[:：]\s*([^\s\[【]+)',
+    ]:
+        m = re.search(pattern, title)
+        if m:
+            candidate = m.group(1).strip()
+            if candidate and not any(kw in candidate for kw in NON_GAME_KEYWORDS) and len(candidate) >= 2:
+                return candidate
+
+    return None
+
+
+def detect_game_trend(title, channel_id, db_path="youtube_long.db", days=30):
+    """youtube_long.db を検索して同ゲームの動画動向を分析する。
+
+    Q1 推奨どおり、抽出パターン B を使用。
+
+    判定:
+    - first_mover: 同ゲーム動画が複数存在し、本動画が最古（=最速参入）
+    - early_mover: 早期参入（上位 3 位以内）
+    - trend_following: トレンド便乗（4 位以下）
+    - niche: 同ゲーム動画が 1〜2 件のみ
+    - None: ゲーム名抽出失敗 or DB 不在
+    """
+    if not db_path or not os.path.exists(db_path):
+        return None
+
+    game_name = extract_game_name(title)
+    if not game_name:
+        return None
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.execute(
+            "SELECT title, channel_id, published "
+            "FROM long_videos "
+            "WHERE title LIKE ? AND published > date('now', ?) "
+            "ORDER BY published ASC",
+            (f"%{game_name}%", f"-{days} days"),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+    except sqlite3.Error:
+        return None
+
+    if not rows:
+        return None
+
+    if len(rows) <= 2:
+        return {
+            "game_name": game_name,
+            "rank": 1,
+            "total": len(rows),
+            "type": "niche",
+            "description": f"「{game_name}」の実況動画は希少（過去{days}日で {len(rows)} 件のみ）。希少性の高い実況動画",
+        }
+
+    # この動画自体の DB 内順位を決定（同 channel_id + タイトル内ゲーム名でマッチ）
+    rank = 1
+    for i, row in enumerate(rows):
+        if row[1] == channel_id and game_name in (row[0] or ""):
+            rank = i + 1
+            break
+
+    if rank == 1:
+        ttype = "first_mover"
+        desc = (
+            f"「{game_name}」の最速実況。後追いで {len(rows) - 1} 件が登場（過去{days}日）。"
+            "新作ゲーム需要 + 先行参入の組合せでバズの可能性大"
+        )
+    elif rank <= 3:
+        ttype = "early_mover"
+        desc = f"「{game_name}」の早期参入（{len(rows)} 件中 {rank} 位の早さで投稿）"
+    else:
+        ttype = "trend_following"
+        desc = f"「{game_name}」がトレンド中（過去{days}日で {len(rows)} 件投稿）。流行ゲーム便乗型"
+
+    return {
+        "game_name": game_name,
+        "rank": rank,
+        "total": len(rows),
+        "type": ttype,
+        "description": desc,
+    }
+
+
+def detect_channel_context(channel_id, video_info, db_path="youtube_long.db", days=90):
+    """このチャンネルの過去動画と比較して相対的な伸びを評価する。
+
+    Q3 推奨どおり過去 90 日を比較対象とする。
+    """
+    if not db_path or not os.path.exists(db_path) or not channel_id:
+        return None
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.execute(
+            "SELECT AVG(view_count), COUNT(*) FROM long_videos "
+            "WHERE channel_id = ? AND published > date('now', ?)",
+            (channel_id, f"-{days} days"),
+        )
+        row = cursor.fetchone()
+        conn.close()
+    except sqlite3.Error:
+        return None
+
+    if not row or not row[0] or row[1] < 3:
+        return None  # 比較対象が少なすぎる
+
+    avg_views = row[0]
+    count = row[1]
+    current_views = video_info.get("views", 0) or video_info.get("view_count", 0) or 0
+    if avg_views == 0:
+        return None
+    ratio = current_views / avg_views
+
+    if ratio >= 5:
+        desc = f"このチャンネルの平均視聴回数の {ratio:.1f} 倍（過去{days}日 {count} 動画と比較、突出した成績）"
+    elif ratio >= 2:
+        desc = f"このチャンネルの平均視聴回数の {ratio:.1f} 倍（過去{days}日比、好調）"
+    elif ratio >= 1:
+        desc = f"このチャンネルの平均視聴回数の {ratio:.1f} 倍（標準的）"
+    else:
+        desc = f"このチャンネルの平均より低い視聴回数（{ratio:.1f} 倍）"
+
+    return {
+        "channel_avg_views": int(avg_views),
+        "vs_channel_avg": round(ratio, 2),
+        "channel_video_count": count,
+        "description": desc,
+    }
+
+
+def detect_viral_pattern(video_info):
+    """投稿日からの経過日数で拡散パターンを分類する。
+
+    - first_day_viral: 投稿当日のバズ
+    - early_viral: 1-2 日
+    - week_viral: 3-7 日
+    - delayed_viral: 8-30 日（外部要因の可能性）
+    - resurgence: 30 日超（古い動画の再評価）
+    """
+    published = video_info.get("published", "")
+    if not published:
+        return None
+    try:
+        if "T" in published:
+            pub_date = datetime.fromisoformat(published.replace("Z", "+00:00")).date()
+        else:
+            pub_date = datetime.strptime(published[:10], "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return None
+
+    today = datetime.now(timezone(timedelta(hours=9))).date()
+    days_since = (today - pub_date).days
+    if days_since < 0:
+        return None  # 未来日付（タイムゾーン誤差）
+
+    if days_since == 0:
+        ptype = "first_day_viral"
+        desc = "投稿当日のバズ。既存ファンベース or 直接拡散による初速型"
+    elif days_since <= 2:
+        ptype = "early_viral"
+        desc = f"投稿後 {days_since} 日でのバズ（初動型）"
+    elif days_since <= 7:
+        ptype = "week_viral"
+        desc = f"投稿後 {days_since} 日でのバズ（短期持続型）"
+    elif days_since <= 30:
+        ptype = "delayed_viral"
+        desc = f"投稿後 {days_since} 日でのバズ（後発拡散型 - 外部要因や口コミの可能性）"
+    else:
+        ptype = "resurgence"
+        desc = f"投稿後 {days_since} 日経過後の再浮上（古い動画の再評価 - SNS や他クリエイター言及の可能性大）"
+
+    return {
+        "type": ptype,
+        "days_since_published": days_since,
+        "description": desc,
+    }
+
+
+# =============================================================================
+# 統合エントリーポイント
 # =============================================================================
 
 def analyze_video_holistic(
@@ -272,20 +497,36 @@ def analyze_video_holistic(
 ):
     """全要因を統合解析する。Returns factors dict.
 
-    Phase 1 では content / title_patterns / timing / engagement のみ実装。
-    Phase 2 で trend / channel_context / viral_pattern を追加。
-    Phase 3 で amplification を追加。
+    Phase 1 (実装済): content / title_patterns / timing / engagement
+    Phase 2 (実装済): trend / channel_context / viral_pattern
+    Phase 3 (Phase 3 で追加予定): amplification
     """
     factors = {}
     comments = comments or []
     video_info = video_info or {}
 
+    # Phase 1: 基礎検出器
     factors["content"] = detect_content_signals(comments, growth_thresholds, video_info)
     factors["title_patterns"] = detect_title_patterns(video_info.get("title", ""))
     factors["timing"] = detect_timing_factors(video_info.get("published", ""))
     factors["engagement"] = detect_engagement_quality(video_info)
 
-    # 人気コメント（content 内にも含まれているが、トップレベルに別出ししておく）
+    # Phase 2: DB クロスリファレンス
+    title = video_info.get("title", "")
+    channel_id = video_info.get("channel_id", "")
+    if long_db_path:
+        trend = detect_game_trend(title, channel_id, db_path=long_db_path)
+        if trend:
+            factors["trend"] = trend
+        ctx = detect_channel_context(channel_id, video_info, db_path=long_db_path)
+        if ctx:
+            factors["channel_context"] = ctx
+
+    pat = detect_viral_pattern(video_info)
+    if pat:
+        factors["viral_pattern"] = pat
+
+    # 人気コメント（トップレベルに別出し）
     if comments:
         top = sorted(comments, key=lambda c: c.get("likes", 0), reverse=True)[:3]
         factors["popular_comments"] = [
@@ -299,41 +540,62 @@ def analyze_video_holistic(
 def format_holistic_analysis(factors):
     """factors dict を人間向けの整形済みテキストに変換する。
 
-    既存 viewer.html の formatAnalysis() の【...】マーカーで装飾されるため、
-    各セクションは「【ラベル】本文」のフォーマットで出力する。
-    強シグナル（高クリック率タイトル / 注目度 / 高エンゲージメント等）のみ
-    表示し、平凡なセクションは省略する。
+    強シグナル優先で並べる順序:
+      1. ジャンル・トレンド（first_mover が最重要）
+      2. 拡散パターン（後発拡散・再浮上は外部要因の可能性）
+      3. バズ要因（コンテンツ評価）
+      4. 注目度（伸び率）
+      5. チャンネル文脈
+      6. タイトル特徴
+      7. 投稿タイミング
+      8. エンゲージメント
+      9. 人気コメント
     """
     if not factors:
         return "解析データなし"
 
     parts = []
 
-    # 1. コンテンツ評価
+    # 1. ジャンル・トレンド（DB クロスリファレンスで検出）
+    trend = factors.get("trend")
+    if trend and trend.get("game_name"):
+        parts.append(f"【ジャンル・トレンド】{trend['description']}")
+
+    # 2. 拡散パターン（不自然なパターンのみ表示 = 後発・再浮上）
+    pat = factors.get("viral_pattern")
+    if pat and pat.get("type") in ("delayed_viral", "resurgence"):
+        parts.append(f"【拡散パターン】{pat['description']}")
+
+    # 3. コンテンツ評価
     content = factors.get("content", {})
     if content.get("description"):
         parts.append(f"【バズ要因】{content['description']}")
 
-    # 2. 注目度（伸び率）
+    # 4. 注目度（伸び率）
     if content.get("growth_note"):
         parts.append(f"【注目度】{content['growth_note']}")
 
-    # 3. タイトル特徴（強シグナルのみ）
+    # 5. チャンネル文脈（ratio が ≥2 の時のみ表示 = 普段比好調）
+    ctx = factors.get("channel_context")
+    if ctx and ctx.get("vs_channel_avg", 0) >= 2:
+        parts.append(f"【チャンネル文脈】{ctx['description']}")
+
+    # 6. タイトル特徴（強シグナルのみ）
     title_p = factors.get("title_patterns", {})
     if title_p.get("emotion_words") or (title_p.get("click_score", 0) >= 7):
         parts.append(f"【タイトル特徴】{title_p['description']}")
 
-    # 4. 投稿タイミング（強シグナルのみ）
+    # 7. 投稿タイミング（強シグナルのみ）
     timing = factors.get("timing", {})
     if timing.get("is_golden_time") or timing.get("is_weekend"):
         parts.append(f"【投稿タイミング】{timing['description']}")
 
-    # 5. エンゲージメント（高水準のみ）
+    # 8. エンゲージメント（高水準のみ）
     eng = factors.get("engagement", {})
     if eng.get("is_high_engagement"):
         parts.append(f"【エンゲージメント】{eng['description']}")
 
-    # 6. 人気コメント
+    # 9. 人気コメント
     pop = factors.get("popular_comments", [])
     if pop:
         best = pop[0]

@@ -758,7 +758,12 @@ def fetch_and_analyze_all_long(results, quota, limit_top_n=20):
             "growth_rate": r.get("growth_rate", 0),
         }
         comments = fetch_comments_long(video_id, quota)
-        factors = analyze_video_holistic(video_info, comments, growth_thresholds=(5, 2, 1))
+        # 横動画は youtube_long.db を持っているので DB クロスリファレンスを有効化
+        factors = analyze_video_holistic(
+            video_info, comments,
+            growth_thresholds=(5, 2, 1),
+            long_db_path=DB_FILE,
+        )
         r["factors"] = factors
         r["analysis"] = format_holistic_analysis(factors)
         analyzed_count += 1

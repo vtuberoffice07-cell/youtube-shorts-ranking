@@ -380,8 +380,13 @@ def fetch_and_analyze_all(results):
 
         print(f"  [{i+1}/{total}] {r['channel'][:20]}...")
         comments = fetch_comments(video_id)
-        # video_info に必要なキーは r に揃っている（title/views/subscribers/comments/growth_rate/published/url/channel_id）
-        factors = analyze_video_holistic(r, comments, growth_thresholds=(50, 15, 5))
+        # video_info は r をそのまま渡す（title/views/subscribers/comments/growth_rate/published/url/channel_id 揃い）
+        # long_db_path: 横動画 DB を共用してゲームトレンド/チャンネル文脈を解析
+        factors = analyze_video_holistic(
+            r, comments,
+            growth_thresholds=(50, 15, 5),
+            long_db_path="youtube_long.db",
+        )
         r["factors"] = factors
         r["analysis"] = format_holistic_analysis(factors)
 
