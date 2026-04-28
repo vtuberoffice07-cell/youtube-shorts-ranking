@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>プライバシーポリシー / Privacy Policy - VTuber Buzz Ranking</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; max-width: 820px; margin: 40px auto; padding: 0 20px; line-height: 1.8; color: #222; background: #fafafa; }
+  h1 { border-bottom: 3px solid #e94560; padding-bottom: 10px; }
+  h2 { color: #0f0f1a; border-left: 4px solid #e94560; padding-left: 12px; margin-top: 32px; }
+  h3 { color: #444; margin-top: 24px; }
+  a { color: #e94560; }
+  .lang-switch { text-align: right; margin-bottom: 20px; }
+  .lang-switch a { padding: 6px 12px; border: 1px solid #e94560; border-radius: 4px; text-decoration: none; }
+  .meta { background: #fff; border: 1px solid #ddd; padding: 16px; border-radius: 6px; }
+  hr { margin: 60px 0; border: 0; border-top: 2px dashed #ccc; }
+  .youtube-notice { background: #fff5f5; border-left: 4px solid #e94560; padding: 12px 16px; margin: 16px 0; }
+  ul { padding-left: 28px; }
+  li { margin: 6px 0; }
+</style>
+</head>
+<body>
+
+<div class="lang-switch"><a href="#en">English ↓</a></div>
+
+<h1>プライバシーポリシー</h1>
+
+<div class="meta">
+  <strong>サービス名:</strong> VTuber Buzz Ranking<br>
+  <strong>運営者:</strong> カイン (個人運営)<br>
+  <strong>連絡先:</strong> <a href="mailto:amtokyo713@gmail.com">amtokyo713@gmail.com</a><br>
+  <strong>サービスURL:</strong> <a href="https://vtuberoffice07-cell.github.io/youtube-shorts-ranking/">https://vtuberoffice07-cell.github.io/youtube-shorts-ranking/</a><br>
+  <strong>最終更新日:</strong> 2026年4月28日
+</div>
+
+<h2>1. 概要</h2>
+<p>「VTuber Buzz Ranking」（以下「本サービス」）は、個人VTuber（バーチャルYouTuber）の動画・投稿の動向を観察するための個人運営のオープンソースプロジェクトです。本サービスは YouTube Data API v3、TikTok 関連 API、Twitter(X) 関連 API を利用して公開情報を収集し、ランキング形式で表示します。</p>
+
+<h2>2. 収集する情報</h2>
+
+<h3>2.1 本サービス利用者から収集する情報</h3>
+<p>本サービスは静的な HTML / JSON ファイルを GitHub Pages 上で配信しており、サーバーサイドで利用者の個人情報を収集することは <strong>一切ありません</strong>。具体的に：</p>
+<ul>
+  <li>利用者登録、ログイン、認証は <strong>不要</strong></li>
+  <li>Cookie やセッション ID を発行しません</li>
+  <li>利用者の IP アドレス、デバイス情報、行動ログを取得しません</li>
+  <li>アクセス解析ツール（Google Analytics 等）を導入していません</li>
+</ul>
+
+<h3>2.2 外部 API から取得する情報</h3>
+<p>本サービスは以下の API から、各プラットフォームが <strong>公開している情報</strong> のみを取得します：</p>
+
+<div class="youtube-notice">
+<strong>YouTube Data API v3 から取得する情報:</strong>
+<ul>
+  <li>動画ID、タイトル、説明文、サムネイル URL、公開日時、動画長</li>
+  <li>動画の再生数、いいね数、コメント数（公開統計のみ）</li>
+  <li>チャンネル ID、チャンネル名、登録者数（公開分のみ）、アップロード再生リスト ID</li>
+</ul>
+取得する情報は <strong>一般公開されている範囲</strong> に限られ、限定公開・非公開動画やプライベートチャンネルの情報は取得しません。
+</div>
+
+<h3>2.3 取得しない情報</h3>
+<ul>
+  <li>視聴者の個人情報（メールアドレス、氏名、住所等）</li>
+  <li>動画作成者・チャンネル所有者の個人情報（公開プロフィール以外）</li>
+  <li>非公開のコメントや限定公開動画</li>
+  <li>YouTube ユーザーの認証情報、視聴履歴、検索履歴</li>
+</ul>
+
+<h2>3. 情報の利用目的</h2>
+<p>取得した情報は次の目的でのみ利用します：</p>
+<ul>
+  <li>個人VTuberの動画・チャンネルのバズ動向を集計・ランキング表示する</li>
+  <li>過去のデータと比較した時系列分析を行う</li>
+  <li>傾向分析レポート（ヒントレポート）を生成する</li>
+</ul>
+<p>取得情報は <strong>第三者への販売・提供は一切行いません</strong>。広告配信、マーケティング目的のプロファイリング、レコメンドエンジン構築には利用しません。</p>
+
+<h2>4. データの保存期間</h2>
+<ul>
+  <li>取得した動画・チャンネル情報は、本プロジェクトの GitHub リポジトリ上の SQLite データベースおよび JSON ファイルとして無期限に保存します（履歴比較のため）</li>
+  <li>ただし YouTube 上で削除された動画・チャンネルについては、運営者が把握した時点で本サービス側のデータも削除します</li>
+  <li>動画作成者・チャンネル所有者から削除依頼があった場合は、原則として 7 日以内にデータを削除します（連絡先：上記メール）</li>
+</ul>
+
+<h2>5. 第三者への提供</h2>
+<p>取得情報を第三者に提供することはありません。ただし以下の場合は除きます：</p>
+<ul>
+  <li>法令に基づく開示請求があった場合</li>
+  <li>YouTube / Google からの正式な要請があった場合</li>
+</ul>
+
+<h2>6. YouTube API サービスの利用について</h2>
+<div class="youtube-notice">
+本サービスは YouTube API Services を利用しています。本サービスを利用することで、利用者は以下に同意したものとみなされます：
+<ul>
+  <li><a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube 利用規約 (YouTube Terms of Service)</a></li>
+  <li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google プライバシー ポリシー</a></li>
+</ul>
+本サービスの YouTube 関連表示部分は、YouTube ブランドガイドラインに準拠してロゴおよびリンクを表示します。
+</div>
+
+<h2>7. データ削除リクエスト</h2>
+<p>動画作成者・チャンネル所有者から以下の連絡を受けた場合、対応いたします：</p>
+<ul>
+  <li>自身の動画・チャンネル情報の削除依頼</li>
+  <li>本サービスに保存されているデータの開示請求</li>
+  <li>その他プライバシーに関する問い合わせ</li>
+</ul>
+<p>連絡先: <a href="mailto:amtokyo713@gmail.com">amtokyo713@gmail.com</a>（カイン宛）</p>
+
+<h2>8. 子供のプライバシー</h2>
+<p>本サービスは13歳未満の利用者を対象としていません。13歳未満の方は本サービスの利用を控えてください。</p>
+
+<h2>9. ポリシーの変更</h2>
+<p>本ポリシーは予告なく変更される場合があります。重要な変更がある場合は、本ページの「最終更新日」を更新してお知らせします。</p>
+
+<h2>10. 運営者情報</h2>
+<p>
+  運営者: カイン（個人運営、ハンドル名）<br>
+  連絡先: <a href="mailto:amtokyo713@gmail.com">amtokyo713@gmail.com</a><br>
+  プロジェクト: <a href="https://github.com/vtuberoffice07-cell/youtube-shorts-ranking">https://github.com/vtuberoffice07-cell/youtube-shorts-ranking</a>
+</p>
+
+<hr>
+
+<a id="en"></a>
+<h1>Privacy Policy (English)</h1>
+
+<div class="meta">
+  <strong>Service Name:</strong> VTuber Buzz Ranking<br>
+  <strong>Operator:</strong> Kain (Individual / hobbyist project)<br>
+  <strong>Contact:</strong> <a href="mailto:amtokyo713@gmail.com">amtokyo713@gmail.com</a><br>
+  <strong>Service URL:</strong> <a href="https://vtuberoffice07-cell.github.io/youtube-shorts-ranking/">https://vtuberoffice07-cell.github.io/youtube-shorts-ranking/</a><br>
+  <strong>Last updated:</strong> April 28, 2026
+</div>
+
+<h2>1. Overview</h2>
+<p>"VTuber Buzz Ranking" (hereinafter "the Service") is an individually operated, open-source project for observing the trends of videos and posts by individual VTubers (Virtual YouTubers). The Service uses YouTube Data API v3, TikTok-related APIs, and Twitter(X)-related APIs to collect publicly available information and display it in ranking format.</p>
+
+<h2>2. Information We Collect</h2>
+
+<h3>2.1 Information from Service Users</h3>
+<p>The Service is delivered as static HTML / JSON files hosted on GitHub Pages, and <strong>does not collect any personal information from users on the server side</strong>. Specifically:</p>
+<ul>
+  <li>No user registration, login, or authentication required</li>
+  <li>No cookies or session IDs are issued</li>
+  <li>No IP addresses, device information, or behavioral logs are collected</li>
+  <li>No access analytics tools (such as Google Analytics) are installed</li>
+</ul>
+
+<h3>2.2 Information Retrieved via External APIs</h3>
+<p>The Service retrieves only <strong>publicly available information</strong> from each platform's API:</p>
+
+<div class="youtube-notice">
+<strong>Information retrieved from YouTube Data API v3:</strong>
+<ul>
+  <li>Video ID, title, description, thumbnail URL, publish date, video length</li>
+  <li>Video view count, like count, comment count (public statistics only)</li>
+  <li>Channel ID, channel name, public subscriber count, uploads playlist ID</li>
+</ul>
+The retrieved data is strictly limited to <strong>publicly accessible information</strong>. We do not retrieve unlisted/private videos or private channel data.
+</div>
+
+<h3>2.3 Information We Do NOT Collect</h3>
+<ul>
+  <li>Personal information of viewers (email, name, address, etc.)</li>
+  <li>Personal information of video creators / channel owners (beyond their public profile)</li>
+  <li>Private comments or unlisted videos</li>
+  <li>YouTube users' authentication credentials, viewing history, or search history</li>
+</ul>
+
+<h2>3. Purpose of Use</h2>
+<p>Retrieved data is used solely for the following purposes:</p>
+<ul>
+  <li>Aggregating and displaying buzz trends of individual VTubers' videos and channels</li>
+  <li>Performing time-series analysis by comparing with historical data</li>
+  <li>Generating trend analysis reports</li>
+</ul>
+<p>We <strong>never sell or transfer</strong> retrieved information to third parties. The data is not used for advertising, marketing-purpose profiling, or recommendation engine training.</p>
+
+<h2>4. Data Retention</h2>
+<ul>
+  <li>Retrieved video and channel data is stored indefinitely as SQLite databases and JSON files in the project's GitHub repository (for historical comparison purposes)</li>
+  <li>If a video or channel is removed from YouTube, we will remove the corresponding data from our service when we become aware of it</li>
+  <li>Data deletion requests from video creators / channel owners will be honored within 7 days in principle (contact: email above)</li>
+</ul>
+
+<h2>5. Disclosure to Third Parties</h2>
+<p>We do not disclose retrieved data to third parties, except in the following cases:</p>
+<ul>
+  <li>When required by law</li>
+  <li>When formally requested by YouTube / Google</li>
+</ul>
+
+<h2>6. About YouTube API Services</h2>
+<div class="youtube-notice">
+This Service uses YouTube API Services. By using this Service, users are deemed to have agreed to the following:
+<ul>
+  <li><a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener">YouTube Terms of Service</a></li>
+  <li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener">Google Privacy Policy</a></li>
+</ul>
+YouTube-related display areas in this Service follow the YouTube branding guidelines for logos and links.
+</div>
+
+<h2>7. Data Deletion Requests</h2>
+<p>For video creators / channel owners, we will respond to the following requests:</p>
+<ul>
+  <li>Requests to delete your own video or channel information</li>
+  <li>Disclosure requests for your data stored in the Service</li>
+  <li>Other privacy-related inquiries</li>
+</ul>
+<p>Contact: <a href="mailto:amtokyo713@gmail.com">amtokyo713@gmail.com</a> (to Kain)</p>
+
+<h2>8. Children's Privacy</h2>
+<p>This Service is not intended for users under 13 years of age. Users under 13 should refrain from using this Service.</p>
+
+<h2>9. Changes to This Policy</h2>
+<p>This Policy may be changed without prior notice. For significant changes, we will update the "Last updated" date on this page.</p>
+
+<h2>10. Operator Information</h2>
+<p>
+  Operator: Kain (Individual operation, handle name)<br>
+  Contact: <a href="mailto:amtokyo713@gmail.com">amtokyo713@gmail.com</a><br>
+  Project: <a href="https://github.com/vtuberoffice07-cell/youtube-shorts-ranking">https://github.com/vtuberoffice07-cell/youtube-shorts-ranking</a>
+</p>
+
+</body>
+</html>
