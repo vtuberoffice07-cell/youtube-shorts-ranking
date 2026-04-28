@@ -63,14 +63,16 @@ DISCOVER_DAYS = 7                # 新規発掘検索の対象期間（1→7 日
 DISCOVER_MAX_RESULTS = 50
 
 # 曜日別検索クエリローテーション（月=0 ... 日=6、各日2クエリ = 200 quota/run）
+# 2026-04-28: 水曜の「VTuber 歌ってみた」と日曜の「Vsinger」は歌動画を発掘してしまうため
+# 「VTuber マシュマロ」「個人VTuber トーク」に差し替え（歌系は集計対象外と決定）
 DISCOVER_QUERY_ROTATION = {
-    0: ["個人VTuber", "個人勢 雑談"],          # 月
-    1: ["新人VTuber", "VTuber ゲーム実況"],     # 火
-    2: ["個人勢VTuber", "VTuber 歌ってみた"],   # 水
-    3: ["個人VTuber 配信", "VTuber 解説"],      # 木
-    4: ["個人勢 ASMR", "VTuber 雑談"],          # 金
-    5: ["VTuber 新人", "個人VTuber 配信"],      # 土
-    6: ["個人VTuber", "Vsinger"],               # 日
+    0: ["個人VTuber", "個人勢 雑談"],            # 月
+    1: ["新人VTuber", "VTuber ゲーム実況"],       # 火
+    2: ["個人勢VTuber", "VTuber マシュマロ"],     # 水
+    3: ["個人VTuber 配信", "VTuber 解説"],        # 木
+    4: ["個人勢 ASMR", "VTuber 雑談"],            # 金
+    5: ["VTuber 新人", "個人VTuber 配信"],        # 土
+    6: ["個人VTuber", "個人VTuber トーク"],       # 日
 }
 
 # ---------------------------------------------------------------------------
@@ -78,9 +80,11 @@ DISCOVER_QUERY_ROTATION = {
 # 2026-04-28 改修1+: "まとめ" は本人動画のタイトルにも一般語として頻出するため除外
 # （例: 「嘘だらけのまとめサイトにまとめられる新人Vtuber」など）。
 # 切り抜き系は "切り抜き" "反応" "速報" "手書き" でほぼカバーできる。
+# 2026-04-28 改修2: 歌ってみた/カバー曲は集計対象外と決定（ユーザー指示）
 # ---------------------------------------------------------------------------
 NG_KEYWORDS = [
     "切り抜き", "速報", "手書き", "反応",
+    "歌ってみた", "歌みた", "歌う", "cover", "カバー",
     "ホロライブ", "hololive", "にじさんじ", "nijisanji",
     "ぶいすぽ", "ネオポルテ",
 ]
@@ -647,7 +651,11 @@ def filter_videos(videos, channels_info):
 
 
 def load_top_videos_from_db(conn, days=SEARCH_DAYS, limit=50):
-    """DBから直近days日分のすべての動画を読み出して growth_rate でランキング。"""
+    """DBから直近days日分のすべての動画を読み出して growth_rate でランキング。
+
+    NG_KEYWORDS が後から変更された場合に既存DBの動画にも遡及適用するため、
+    title / channel_title に対して読み出し時に NG チェックをかける。
+    """
     cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%S")
     rows = conn.execute(
         "SELECT id, channel_id, title, description, published, duration_sec, "
@@ -656,18 +664,27 @@ def load_top_videos_from_db(conn, days=SEARCH_DAYS, limit=50):
         (cutoff,)
     ).fetchall()
     items = []
+    skipped_ng = 0
     for r in rows:
+        title = r[2] or ""
+        channel_title = r[9] or ""
+        # 現行の NG_KEYWORDS でフィルタ（遡及適用）
+        if contains_ng_keyword(title) or contains_ng_keyword(channel_title) or "切り抜き" in channel_title:
+            skipped_ng += 1
+            continue
         sub = r[8] or 0
         view = r[6] or 0
         gr = round(view / sub, 1) if sub > 0 else 0
         items.append({
-            "id": r[0], "channel_id": r[1], "title": r[2], "description": r[3],
+            "id": r[0], "channel_id": r[1], "title": title, "description": r[3],
             "published": r[4], "duration_sec": r[5],
             "view_count": view, "comment_count": r[7], "subscriber_count": sub,
-            "channel_title": r[9], "url": r[10],
+            "channel_title": channel_title, "url": r[10],
             "tags": json.loads(r[11]) if r[11] else [],
             "growth_rate": gr, "fetched_at": r[12],
         })
+    if skipped_ng:
+        print(f"  → 表示時 NG フィルタで {skipped_ng} 件除外（NG_KEYWORDS の遡及適用）")
     items.sort(key=lambda x: x["growth_rate"], reverse=True)
     return items[:limit]
 

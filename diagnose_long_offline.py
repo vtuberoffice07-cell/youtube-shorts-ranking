@@ -21,6 +21,7 @@ MAX_DURATION_SEC = 30 * 60
 SEARCH_DAYS = 14
 NG_KEYWORDS = [
     "切り抜き", "速報", "手書き", "反応",
+    "歌ってみた", "歌みた", "歌う", "cover", "カバー",
     "ホロライブ", "hololive", "にじさんじ", "nijisanji",
     "ぶいすぽ", "ネオポルテ",
 ]
