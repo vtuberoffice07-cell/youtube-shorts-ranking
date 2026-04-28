@@ -15,6 +15,14 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from googleapiclient.discovery import build
 
+from quota_logger import log_quota_run
+from vtuber_common import (
+    parse_iso8601_duration,
+    contains_ng_keyword as _common_contains_ng_keyword,
+    has_japanese_kana,
+    is_japanese_vtuber,
+)
+
 # Windows cp932 で出力エラーを防ぐ
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
@@ -26,6 +34,9 @@ if not API_KEY or API_KEY == "YOUR_API_KEY_HERE":
     sys.exit(1)
 
 youtube = build("youtube", "v3", developerKey=API_KEY)
+
+# クォータロガー用カウンタ
+_QUOTA_COUNTS = {"search_list": 0, "videos_list": 0, "channels_list": 0}
 
 # --- フィルタ条件（main.pyと同一） ---
 SEARCH_QUERIES = [
@@ -48,24 +59,9 @@ NG_KEYWORDS = [
 ]
 
 
-def parse_iso8601_duration(duration_str):
-    match = re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", duration_str)
-    if not match:
-        return 0
-    hours = int(match.group(1) or 0)
-    minutes = int(match.group(2) or 0)
-    seconds = int(match.group(3) or 0)
-    return hours * 3600 + minutes * 60 + seconds
-
-
 def contains_ng_keyword(text):
-    if not text:
-        return False
-    text_lower = text.lower()
-    for ng in NG_KEYWORDS:
-        if ng.lower() in text_lower:
-            return True
-    return False
+    """このスクリプトの NG_KEYWORDS で判定する薄いラッパー。"""
+    return _common_contains_ng_keyword(text, NG_KEYWORDS)
 
 
 def search_shorts():
@@ -104,6 +100,7 @@ def search_shorts():
                 )
                 response = request.execute()
                 api_calls += 1
+                _QUOTA_COUNTS["search_list"] += 1
 
                 new_count = 0
                 for item in response.get("items", []):
@@ -137,6 +134,7 @@ def get_video_details(video_ids):
             id=",".join(batch),
         )
         response = request.execute()
+        _QUOTA_COUNTS["videos_list"] += 1
         videos.extend(response.get("items", []))
     return videos
 
@@ -151,6 +149,7 @@ def get_channel_details(channel_ids):
             id=",".join(batch),
         )
         response = request.execute()
+        _QUOTA_COUNTS["channels_list"] += 1
         for item in response.get("items", []):
             sub_count = int(item["statistics"].get("subscriberCount", 0))
             if item["statistics"].get("hiddenSubscriberCount", False):
@@ -173,21 +172,6 @@ def is_blacklisted(video, channel_name):
         if contains_ng_keyword(text):
             return True
     return False
-
-
-def has_japanese_kana(text):
-    if not text:
-        return False
-    for ch in text:
-        if ("\u3040" <= ch <= "\u309F" or "\u30A0" <= ch <= "\u30FF"):
-            return True
-    return False
-
-
-def is_japanese_vtuber(video, channel_name):
-    title = video["snippet"].get("title", "")
-    description = video["snippet"].get("description", "")
-    return has_japanese_kana(title) or has_japanese_kana(channel_name) or has_japanese_kana(description)
 
 
 def filter_and_rank(videos, channels):
@@ -478,3 +462,5 @@ if __name__ == "__main__":
         import traceback
         traceback.print_exc()
         sys.exit(1)
+    finally:
+        log_quota_run("main_all.py", _QUOTA_COUNTS)

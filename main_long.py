@@ -28,6 +28,14 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from googleapiclient.discovery import build
 
+from quota_logger import log_quota_run
+from vtuber_common import (
+    parse_iso8601_duration,
+    contains_ng_keyword as _common_contains_ng_keyword,
+    has_japanese_kana,
+    is_japanese_vtuber,
+)
+
 # Windows cp932 で出力エラーを防ぐ
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
@@ -98,36 +106,9 @@ CSV_FILE = "long_output.csv"
 # 共通ユーティリティ（main.py 由来）
 # =============================================================================
 
-def parse_iso8601_duration(duration_str):
-    """ISO 8601 duration (PT1M30S等) を秒数に変換する。"""
-    if not duration_str:
-        return 0
-    match = re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", duration_str)
-    if not match:
-        return 0
-    hours = int(match.group(1) or 0)
-    minutes = int(match.group(2) or 0)
-    seconds = int(match.group(3) or 0)
-    return hours * 3600 + minutes * 60 + seconds
-
-
 def contains_ng_keyword(text):
-    if not text:
-        return False
-    text_lower = text.lower()
-    for ng in NG_KEYWORDS:
-        if ng.lower() in text_lower:
-            return True
-    return False
-
-
-def has_japanese_kana(text):
-    if not text:
-        return False
-    for ch in text:
-        if "぀" <= ch <= "ゟ" or "゠" <= ch <= "ヿ":
-            return True
-    return False
+    """このスクリプトの NG_KEYWORDS で判定する薄いラッパー。"""
+    return _common_contains_ng_keyword(text, NG_KEYWORDS)
 
 
 # =============================================================================
@@ -572,12 +553,6 @@ def is_blacklisted(video, channel_name):
     return False
 
 
-def is_japanese_vtuber(video, channel_name):
-    title = (video.get("snippet") or {}).get("title", "")
-    description = (video.get("snippet") or {}).get("description", "")
-    return has_japanese_kana(title) or has_japanese_kana(channel_name or "") or has_japanese_kana(description)
-
-
 def filter_videos(videos, channels_info):
     """videos (videos.list レスポンス) をフィルタして整形。
     channels_info: { channel_id: {title, subscriber_count, ...} }"""
@@ -865,13 +840,24 @@ def main():
         quota.report()
 
     print(f"\n完了!")
+    return quota
 
 
 if __name__ == "__main__":
+    quota_result = None
     try:
-        main()
+        quota_result = main()
     except Exception as e:
         print(f"\n❌ 致命的エラー: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)
+    finally:
+        # クォータ消費を JSONL ログに追記（致命的エラー時も部分集計を記録）
+        if quota_result is not None:
+            log_quota_run("main_long.py", {
+                "search_list": quota_result.search_calls,
+                "videos_list": quota_result.videos_calls,
+                "channels_list": quota_result.channels_calls,
+                "playlist_items_list": quota_result.playlist_items_calls,
+            })
