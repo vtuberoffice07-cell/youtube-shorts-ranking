@@ -1296,18 +1296,12 @@ document.getElementById('authPassword').addEventListener('keydown', (e) => {
 });
 
 // 認証が無効化されている、または既にこのセッションで認証済みなら即解錠
+// （データロードは第2スクリプトの末尾で行う。<script>タグをまたぐと
+//   関数宣言のホイストが効かないため、UI切替のみここで実行）
 if (!AUTH_REQUIRED || sessionStorage.getItem('vtr_auth') === '1') {
   document.getElementById('authScreen').classList.add('hidden');
   document.getElementById('mainContent').style.display = '';
   document.body.classList.add('authed');
-  if (!AUTH_REQUIRED) {
-    // 認証無効モード: 自動でデータをロード
-    loadData();
-    loadAllVData();
-    loadLongData();
-    loadTikTokData();
-    loadTwitterData();
-  }
 }
 </script>
 
@@ -3984,6 +3978,19 @@ function renderTweetHints() {
       </div>
     </div>
   `;
+}
+
+// === 起動時の自動データロード ===
+// 認証無効モード（AUTH_REQUIRED=false）または同一セッションで認証済みなら、
+// データを自動取得して表示する。AUTH_REQUIRED は第1スクリプトで定義済み。
+// loadData 等の関数定義は本スクリプト内にあるため、ここで呼ぶ必要がある
+// （別 <script> タグだと関数宣言のホイストが効かない）。
+if (!AUTH_REQUIRED || sessionStorage.getItem('vtr_auth') === '1') {
+  loadData();
+  loadAllVData();
+  loadLongData();
+  loadTikTokData();
+  loadTwitterData();
 }
 </script>
 
