@@ -19,3 +19,6 @@
 {"timestamp": "2026-05-02T07:44:52+09:00", "script": "main.py", "search_list": 16, "videos_list": 12, "channels_list": 10, "total_units": 1622}
 {"timestamp": "2026-05-02T07:45:02+09:00", "script": "main_all.py", "search_list": 16, "videos_list": 12, "channels_list": 10, "total_units": 1622}
 {"timestamp": "2026-05-02T07:46:19+09:00", "script": "main_long.py", "search_list": 2, "videos_list": 60, "channels_list": 6, "playlist_items_list": 199, "comment_threads_list": 14, "total_units": 479}
+{"timestamp": "2026-05-02T19:54:49+09:00", "script": "main.py", "search_list": 16, "videos_list": 12, "channels_list": 10, "total_units": 1622}
+{"timestamp": "2026-05-02T19:55:01+09:00", "script": "main_all.py", "search_list": 16, "videos_list": 12, "channels_list": 10, "total_units": 1622}
+{"timestamp": "2026-05-02T19:56:15+09:00", "script": "main_long.py", "search_list": 2, "videos_list": 60, "channels_list": 6, "playlist_items_list": 200, "comment_threads_list": 16, "total_units": 482}
